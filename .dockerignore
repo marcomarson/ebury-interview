@@ -1,0 +1,24 @@
+# Keep the build context lean — only what the image needs (dags/, dbt/) plus the
+# Dockerfile. Everything else is excluded.
+.git
+.gitignore
+.gitattributes
+.dockerignore
+.venv
+venv
+env
+.env
+.env.example
+Makefile
+README.md
+ai-plans/
+docs/
+ebury-docs/
+db/
+docker-compose.yml
+# dbt/airflow runtime artifacts that must never be baked in
+**/target/
+**/logs/
+**/dbt_packages/
+**/.user.yml
+**/__pycache__/

@@ -35,3 +35,9 @@ RUN python -m venv "${DBT_VENV}" \
       "dbt-core==1.9.11" \
       "dbt-postgres==1.9.1"
 USER airflow
+
+# Bake the project into the image so it's a self-contained, prod-ready artifact
+# (ADR 0004). In LOCAL dev the docker-compose bind mounts override these paths for
+# fast iteration (edit -> rerun, no rebuild); the baked copy is what ships to prod.
+COPY --chown=airflow:0 dags/ /opt/airflow/dags/
+COPY --chown=airflow:0 dbt/ /opt/airflow/dbt/
