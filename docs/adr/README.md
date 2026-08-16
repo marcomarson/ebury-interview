@@ -9,3 +9,4 @@ consolidates them into a single architecture-and-decisions narrative for submiss
 |---|----------|--------|
 | [0001](0001-dbt-orchestration.md) | Orchestrating dbt from Airflow → **Astronomer Cosmos** (isolated venv); Docker/K8s/dbt-Cloud kept as prod talking points | Accepted |
 | [0002](0002-configuration-and-secrets.md) | Configuration & secrets → inline `${VAR:-default}` for local dev; **.env / cloud secrets manager** for real deployments | Accepted |
+| [0003](0003-pin-classic-dbt-engine.md) | Pin **classic `dbt-core`** (Postgres-supporting) instead of the dbt Fusion 2.0 pre-release | Accepted |

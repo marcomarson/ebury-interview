@@ -6,7 +6,7 @@ written just-in-time so they reflect what the previous step actually produced.
 
 | # | Plan | File | Status |
 |---|------|------|--------|
-| 01 | Infra & walking skeleton (Postgres + Airflow + dbt via docker-compose) | [01-infra-scaffold.md](01-infra-scaffold.md) | Draft — awaiting approval |
+| 01 | Infra & walking skeleton (Postgres + Airflow + dbt via docker-compose) | [01-infra-scaffold.md](01-infra-scaffold.md) | ✅ Done — built & verified |
 | 02 | Raw ingestion — land `customer_transactions.csv` into Postgres `raw` | _tbd_ | Not started |
 | 03 | Data profiling & DQ rule definition | _tbd_ | Not started |
 | 04 | dbt transform & star schema (staging → dims/fact → aggregates) via Cosmos | _tbd_ | Not started |

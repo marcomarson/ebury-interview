@@ -1,0 +1,14 @@
+# Force LF line endings for files that run inside Linux containers, so cloning on
+# Windows (CRLF) doesn't break shell commands, entrypoints, or SQL/dbt files.
+* text=auto eol=lf
+*.sh   text eol=lf
+*.py   text eol=lf
+*.sql  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
+Makefile   text eol=lf
+*.csv  text eol=lf
+
+# Treat the dataset and binaries sensibly
+*.pdf binary

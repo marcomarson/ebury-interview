@@ -1,0 +1,21 @@
+name: 'ebury'
+version: '1.0.0'
+config-version: 2
+
+profile: 'ebury'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Real models land in plan 04. Default materialization set here for later use.
+models:
+  ebury:
+    +materialized: view
