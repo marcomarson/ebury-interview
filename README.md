@@ -4,9 +4,9 @@ A containerized data pipeline that ingests `customer_transactions.csv` into Post
 transforms it with **dbt** into a dimensional model with data-quality checks, and
 orchestrates the flow with **Airflow** — all runnable via `docker compose up`.
 
-> Take-home for the Senior Data Engineer (Platform) role. **Status: Plan 01 complete** —
-> the infrastructure "walking skeleton" is built and verified (see [Roadmap](ai-plans/ROADMAP.md)).
-> Ingestion, modelling, and data quality land in the following plans.
+> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–02 complete** —
+> infrastructure walking skeleton + raw ingestion are built and verified (see
+> [Roadmap](ai-plans/ROADMAP.md)). Modelling and data quality land in the following plans.
 
 ## Stack
 
@@ -79,6 +79,16 @@ docker compose run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow
 
 # 3. Warehouse schemas exist (expect: raw, analytics)
 docker compose exec warehouse psql -U ebury -d ebury -c "\dn"
+```
+
+### Run raw ingestion
+
+Trigger the ingestion DAG, then confirm 100 rows landed in `raw` (dirty values preserved
+as text — cleaning happens in dbt later):
+
+```bash
+docker compose exec airflow-scheduler airflow dags trigger customer_transactions_ingestion
+docker compose exec warehouse psql -U ebury -d ebury -c "SELECT count(*) FROM raw.customer_transactions;"
 ```
 
 If you have `make`, the same actions are wrapped as `make up`, `make dbt-debug`,

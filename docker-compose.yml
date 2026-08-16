@@ -28,10 +28,14 @@ x-airflow-common: &airflow-common
     WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:-ebury}
     DBT_PROFILES_DIR: /opt/airflow/dbt/ebury
     DBT_PROJECT_DIR: /opt/airflow/dbt/ebury
+    # Warehouse Airflow Connection (used by PostgresHook) — injected, no manual UI step.
+    AIRFLOW_CONN_WAREHOUSE: postgres://${WAREHOUSE_USER:-ebury}:${WAREHOUSE_PASSWORD:-ebury}@warehouse:5432/${WAREHOUSE_DB:-ebury}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./dbt:/opt/airflow/dbt
+    - ./include:/opt/airflow/include
     - ./tests:/opt/airflow/tests
+    - ./data:/opt/airflow/data:ro
     - airflow-logs:/opt/airflow/logs
   user: "${AIRFLOW_UID:-50000}:0"
 

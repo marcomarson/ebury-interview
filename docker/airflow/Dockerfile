@@ -16,6 +16,7 @@ ARG PYTHON_VERSION
 # Installed as the default `airflow` user, into Airflow's own site-packages.
 RUN pip install --no-cache-dir \
       "astronomer-cosmos==1.7.1" \
+      "apache-airflow-providers-postgres" \
       "pytest" \
       --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 
@@ -36,8 +37,12 @@ RUN python -m venv "${DBT_VENV}" \
       "dbt-postgres==1.9.1"
 USER airflow
 
+# Reusable code (ingestion package, SQL) importable from anywhere via PYTHONPATH.
+ENV PYTHONPATH=/opt/airflow/include
+
 # Bake the project into the image so it's a self-contained, prod-ready artifact
 # (ADR 0004). In LOCAL dev the docker-compose bind mounts override these paths for
 # fast iteration (edit -> rerun, no rebuild); the baked copy is what ships to prod.
 COPY --chown=airflow:0 dags/ /opt/airflow/dags/
 COPY --chown=airflow:0 dbt/ /opt/airflow/dbt/
+COPY --chown=airflow:0 include/ /opt/airflow/include/

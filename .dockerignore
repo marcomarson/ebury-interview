@@ -15,6 +15,7 @@ ai-plans/
 docs/
 ebury-docs/
 db/
+data/
 docker-compose.yml
 # dbt/airflow runtime artifacts that must never be baked in
 **/target/
