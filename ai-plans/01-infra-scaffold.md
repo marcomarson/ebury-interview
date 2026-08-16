@@ -32,8 +32,12 @@ so every later step builds on proven infrastructure.
   vars pointing at the `postgres` service) such that `dbt debug` passes.
 - A **placeholder Airflow DAG** that imports Cosmos cleanly and runs one `EmptyOperator`
   (or a `dbt debug` smoke task) to prove the wiring.
-- `.env.example` for configurable ports/credentials; healthchecks + `depends_on`
-  conditions so services start in the right order.
+- **Configuration via `${VAR:-default}` defaults inlined in `docker-compose.yml`** so the
+  stack runs with **zero setup** (no `.env` required). A small committed `.env.example`
+  documents overridable values (ports/creds); the real `.env` stays gitignored. Local
+  throwaway defaults only — production would use `.env` / a cloud secrets manager
+  (see [ADR 0002](../docs/adr/0002-configuration-and-secrets.md)).
+- Healthchecks + `depends_on` conditions so services start in the right order.
 - A `Makefile` (or documented commands) for `up` / `down` / `logs` / `test`.
 
 **Out of Scope:**
@@ -62,7 +66,8 @@ so every later step builds on proven infrastructure.
    `dbt debug` is green against the `postgres` service.
 6. Add a placeholder DAG (`dags/`) importing Cosmos and running one no-op / `dbt debug`
    task to prove the DAG parses and executes.
-7. Add `.env.example`, a `Makefile`, and a quickstart snippet (README evolves in plan 08).
+7. Inline `${VAR:-default}` config in `docker-compose.yml`; add a documentation-only
+   `.env.example`, a `Makefile`, and a quickstart snippet (README evolves in plan 08).
 
 ### Expected Outcomes
 
@@ -114,3 +119,4 @@ re-run (`airflow-init` idempotency), stack restart reproducibility.
 | Date | Change |
 |------|--------|
 | 2026-08-16 | Initial version |
+| 2026-08-16 | Config decision: inline `${VAR:-default}` defaults in `docker-compose.yml` (no `.env` required to run); `.env.example` becomes documentation-only. Local defaults only — production uses `.env` / cloud secrets manager. See [ADR 0002](../docs/adr/0002-configuration-and-secrets.md). |

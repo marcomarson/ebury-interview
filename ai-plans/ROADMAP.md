@@ -12,7 +12,7 @@ written just-in-time so they reflect what the previous step actually produced.
 | 04 | dbt transform & star schema (staging → dims/fact → aggregates) via Cosmos | _tbd_ | Not started |
 | 05 | Data quality, observability & exception handling | _tbd_ | Not started |
 | 06 | End-to-end verification (clean-room deploy, reconciliation, idempotency) | _tbd_ | Not started |
-| 07 | Trade-offs & enhancements writeup | _tbd_ | Not started |
+| 07 | Trade-offs & enhancements writeup — **consolidates all [ADRs](../docs/adr/README.md) into one architecture-and-decisions narrative** | _tbd_ | Not started |
 | 08 | README & submission polish | _tbd_ | Not started |
 
 ## Key decisions (locked)
@@ -26,6 +26,9 @@ written just-in-time so they reflect what the previous step actually produced.
     These are kept as **"how this scales to prod" talking points** for the call, not part
     of the deliverable — the Cosmos + isolated-venv design is a drop-in on-ramp to them
     (a change of execution mode, not a re-architecture). Expanded in plan 07.
+- **Configuration & secrets:** inline `${VAR:-default}` defaults in `docker-compose.yml`
+  for zero-setup local runs (no `.env` required); production would use `.env` / a cloud
+  secrets manager. Full record: [ADR 0002](../docs/adr/0002-configuration-and-secrets.md).
 - **Bad records:** coerce/repair what's safe; route unrecoverable rows to a **quarantine**
   table with a reason, keep the clean set flowing. See plans 03–05.
 - **Dimensional model:** pragmatic star — `dim_product` + `dim_date` + `fact_transactions`
