@@ -127,11 +127,12 @@ Design decisions are recorded as [ADRs](docs/adr/README.md); each change is plan
 ```
 ai-plans/            # design plans (one per change) + template + roadmap
 dags/                # Airflow DAGs
+data/                # source dataset (customer_transactions.csv)
 dbt/ebury/           # dbt project (profiles, models, tests)
 db/init/             # warehouse bootstrap SQL (schemas)
 docker/airflow/      # custom Airflow image (Cosmos + isolated dbt venv)
 docs/adr/            # architecture decision records
-tests/               # DAG-integrity unit tests
-ebury-docs/          # case brief (local only) + source dataset
+include/             # reusable pipeline code (ingestion package, SQL)
+tests/               # unit + integration tests
 docker-compose.yml   # the full local stack
 ```
