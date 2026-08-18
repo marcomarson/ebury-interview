@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Landing zone — raw customer transactions, stored as-is (all TEXT)."
+    schema: raw
+    tables:
+      - name: customer_transactions
+        description: >
+          Raw ingested transactions. Deliberately dirty (prefixed ids, float-form
+          integers, mixed date formats, word-valued numbers, nulls). Cleaned downstream.
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 24, period: hour}
+          error_after: {count: 72, period: hour}
+        columns:
+          - name: transaction_id
+            description: "Raw transaction id (may carry a 'T' prefix)."
+          - name: customer_id
+            description: "Raw customer id (float form e.g. 501.0; may be empty)."
+          - name: transaction_date
+            description: "Raw date (ISO or DD-MM-YYYY)."
+          - name: product_id
+            description: "Raw product id (may carry a 'P' prefix)."
+          - name: product_name
+            description: "Product name."
+          - name: quantity
+            description: "Raw quantity (float form; may be empty)."
+          - name: price
+            description: "Raw unit price (may be non-numeric)."
+          - name: tax
+            description: "Raw tax amount (absolute; may be non-numeric)."

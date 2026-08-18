@@ -15,7 +15,17 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-# Real models land in plan 04. Default materialization set here for later use.
 models:
   ebury:
-    +materialized: view
+    # Persist model/column descriptions as DB comments (governance / discoverability).
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+      +schema: analytics

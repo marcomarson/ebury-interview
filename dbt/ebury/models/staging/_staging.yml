@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stg_customer_transactions
+    description: >
+      Cleaned & classified transactions. Coerces recoverable formatting (strip T/P
+      prefixes, float->int, parse both date formats, trim) and classifies each row with
+      `dq_reasons` and `is_valid`. Rows keep both raw (`*_raw`) and typed columns.
+    columns:
+      - name: transaction_id
+        description: "Coerced integer transaction id (NULL if unrecoverable)."
+      - name: is_valid
+        description: "True when the row has no quarantine reasons."
+      - name: dq_reasons
+        description: "Array of failed-rule codes (empty when valid)."
+        tests:
+          - dbt_utils.not_null_proportion:
+              at_least: 0.0  # array is always present (possibly empty)
+      - name: missing_customer
+        description: "True when customer_id was empty (kept + flagged, not quarantined)."

@@ -32,7 +32,14 @@ x-airflow-common: &airflow-common
     AIRFLOW_CONN_WAREHOUSE: postgres://${WAREHOUSE_USER:-ebury}:${WAREHOUSE_PASSWORD:-ebury}@warehouse:5432/${WAREHOUSE_DB:-ebury}
   volumes:
     - ./dags:/opt/airflow/dags
-    - ./dbt:/opt/airflow/dbt
+    # dbt: mount only the editable subdirs/files so the image's baked dbt_packages/
+    # (from `dbt deps`) is preserved and not shadowed by the host mount.
+    - ./dbt/ebury/models:/opt/airflow/dbt/ebury/models
+    - ./dbt/ebury/macros:/opt/airflow/dbt/ebury/macros
+    - ./dbt/ebury/tests:/opt/airflow/dbt/ebury/tests
+    - ./dbt/ebury/dbt_project.yml:/opt/airflow/dbt/ebury/dbt_project.yml
+    - ./dbt/ebury/profiles.yml:/opt/airflow/dbt/ebury/profiles.yml
+    - ./dbt/ebury/packages.yml:/opt/airflow/dbt/ebury/packages.yml
     - ./include:/opt/airflow/include
     - ./tests:/opt/airflow/tests
     - ./data:/opt/airflow/data:ro

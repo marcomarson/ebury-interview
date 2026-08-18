@@ -1,0 +1,129 @@
+version: 2
+
+models:
+  # ---------------- Dimensions (contracts enforced) ----------------
+  - name: dim_product
+    description: "Product dimension (natural key product_id)."
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: product_id
+        data_type: bigint
+        constraints: [{type: not_null}, {type: primary_key}]
+        tests: [unique, not_null]
+      - name: product_name
+        data_type: text
+        constraints: [{type: not_null}]
+        tests: [not_null]
+
+  - name: dim_customer
+    description: "Customer dimension with an explicit unknown member (-1)."
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: customer_id
+        data_type: bigint
+        constraints: [{type: not_null}, {type: primary_key}]
+        tests: [unique, not_null]
+      - name: is_unknown
+        data_type: boolean
+        constraints: [{type: not_null}]
+
+  - name: dim_date
+    description: "Date dimension (spine over the load window)."
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: date_key
+        data_type: integer
+        constraints: [{type: not_null}, {type: primary_key}]
+        tests: [unique, not_null]
+      - name: date_day
+        data_type: date
+        constraints: [{type: not_null}]
+      - name: year
+        data_type: integer
+      - name: month
+        data_type: integer
+      - name: day
+        data_type: integer
+      - name: month_name
+        data_type: text
+      - name: day_of_week
+        data_type: integer
+
+  # ---------------- Fact (contract enforced) ----------------
+  - name: fct_transactions
+    description: "Transaction fact (grain = transaction), clean rows only."
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: transaction_id
+        data_type: bigint
+        constraints: [{type: not_null}, {type: primary_key}]
+        tests: [unique, not_null]
+      - name: customer_id
+        data_type: bigint
+        constraints: [{type: not_null}]
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_customer'), field: customer_id}
+      - name: product_id
+        data_type: bigint
+        constraints: [{type: not_null}]
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_product'), field: product_id}
+      - name: date_key
+        data_type: integer
+        constraints: [{type: not_null}]
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_date'), field: date_key}
+      - name: transaction_date
+        data_type: date
+        constraints: [{type: not_null}]
+      - name: quantity
+        data_type: integer
+        constraints: [{type: not_null}]
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+      - name: unit_price
+        data_type: numeric
+        constraints: [{type: not_null}]
+        tests: [not_null]
+      - name: subtotal
+        data_type: numeric
+        constraints: [{type: not_null}]
+      - name: tax_amount
+        data_type: numeric
+        constraints: [{type: not_null}]
+        tests: [not_null]
+      - name: total_amount
+        data_type: numeric
+        constraints: [{type: not_null}]
+        tests: [not_null]
+      - name: missing_customer
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: _ingested_at
+        data_type: timestamp with time zone
+
+  # ---------------- DQ / quarantine ----------------
+  - name: quarantine_customer_transactions
+    description: "Rejected rows (broken measure) preserved verbatim + dq_reasons."
+    columns:
+      - name: dq_reasons
+        description: "Array of failed-rule codes."
+      - name: transaction_id_raw
+        description: "Original (text) transaction id."
+
+  - name: dq_completeness
+    description: "received / modelled / quarantined reconciliation + quarantine %."
+    columns:
+      - name: reconciles
+        description: "True when modelled + quarantined = received."
+        tests:
+          - accepted_values: {values: [true]}

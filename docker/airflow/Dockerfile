@@ -46,3 +46,8 @@ ENV PYTHONPATH=/opt/airflow/include
 COPY --chown=airflow:0 dags/ /opt/airflow/dags/
 COPY --chown=airflow:0 dbt/ /opt/airflow/dbt/
 COPY --chown=airflow:0 include/ /opt/airflow/include/
+
+# Bake dbt packages into the image (dbt_packages/). In local dev the compose mounts only
+# the editable dbt subdirs (models/macros/tests + yml), so this baked dbt_packages is NOT
+# shadowed and Cosmos can parse the project without a separate `dbt deps` step.
+RUN cd /opt/airflow/dbt/ebury && /opt/dbt-venv/bin/dbt deps
