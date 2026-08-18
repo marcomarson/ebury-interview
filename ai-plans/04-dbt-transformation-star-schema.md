@@ -6,7 +6,7 @@
 |-------|-------|
 | Generated Date | 2026-08-17 |
 | AI Tool/Model | Claude Opus 4.8 |
-| Status | In progress — decisions confirmed 2026-08-17 |
+| Status | Done — built & verified end-to-end 2026-08-17 |
 
 ## Summary
 
@@ -138,3 +138,5 @@ model tasks.
 |------|--------|
 | 2026-08-17 | Initial version |
 | 2026-08-17 | Critical decisions confirmed: (1) **model contracts enforced** on marts (dim_*/fct_*); (2) **separate schemas** — staging models → `staging`, marts → `analytics`; (3) packages **dbt_utils + dbt_expectations**. Natural keys + `-1` unknown customer; views for staging, tables for marts (full-refresh); thin `dim_table`/`fact_table` alias views for the brief's literal names. |
+| 2026-08-17 | **4a — dbt layer built & verified** via `dbt build`: PASS=38, WARN=1 (intended quarantine warn), ERROR=0. `fct_transactions`=71, quarantine=29, `dq_completeness` reconciles (100=71+29); `total = qty*price + tax` holds; monthly/customer/product aggregates correct. |
+| 2026-08-17 | **4b — Cosmos wired & pipeline verified.** Added `customer_transactions_pipeline` (ingest → `dbt_transform` task group); retired `skeleton_healthcheck` + standalone ingestion DAGs. Cosmos needed `RenderConfig(dbt_deps=True)` + `operator_args={install_deps:True}` because it runs `dbt ls`/models in an isolated tmp copy that lacks the baked `dbt_packages`. **Trade-off:** deps install at parse/run; a baked `LoadMode.DBT_MANIFEST` is the optimization (plan 07). Full pipeline run = **success** (~51s); 11/11 pytest pass. |

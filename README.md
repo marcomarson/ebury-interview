@@ -4,9 +4,10 @@ A containerized data pipeline that ingests `customer_transactions.csv` into Post
 transforms it with **dbt** into a dimensional model with data-quality checks, and
 orchestrates the flow with **Airflow** — all runnable via `docker compose up`.
 
-> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–02 complete** —
-> infrastructure walking skeleton + raw ingestion are built and verified (see
-> [Roadmap](ai-plans/ROADMAP.md)). Modelling and data quality land in the following plans.
+> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–04 complete** —
+> infra, raw ingestion, data-quality profiling, and the dbt star schema (with quarantine)
+> are built and verified end-to-end (see [Roadmap](ai-plans/ROADMAP.md)). Remaining plans
+> harden observability, verification, and docs.
 
 ## Stack
 
@@ -49,12 +50,14 @@ Then open the Airflow UI:
 - **URL:** http://localhost:8080
 - **Login:** `admin` / `admin` (local defaults)
 
-Unpause and run the skeleton DAG from the UI, or from the CLI:
+Unpause and run the full pipeline from the UI, or from the CLI:
 
 ```bash
-docker compose exec airflow-scheduler airflow dags unpause skeleton_healthcheck
-docker compose exec airflow-scheduler airflow dags trigger skeleton_healthcheck
+docker compose exec airflow-scheduler airflow dags unpause customer_transactions_pipeline
+docker compose exec airflow-scheduler airflow dags trigger customer_transactions_pipeline
 ```
+
+This ingests the CSV into `raw`, then builds the dbt star schema and runs the tests.
 
 Stop the stack (data is preserved in named volumes):
 
@@ -74,21 +77,26 @@ docker compose down -v
 # 1. dbt connects to the warehouse (expect: "All checks passed!")
 docker compose run --rm dbt debug
 
-# 2. DAG-integrity unit tests (expect: "2 passed")
+# 2. Unit + integration tests (expect: "11 passed")
 docker compose run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q"
 
-# 3. Warehouse schemas exist (expect: raw, analytics)
-docker compose exec warehouse psql -U ebury -d ebury -c "\dn"
+# 3. Build the whole dbt project + tests directly (expect: PASS=38 WARN=1 ERROR=0)
+docker compose run --rm dbt build
 ```
 
-### Run raw ingestion
+The one WARN is intentional — the quarantine test surfaces the 29 rejected rows without
+failing the run (see [Data quality](#data-quality--quarantine)).
 
-Trigger the ingestion DAG, then confirm 100 rows landed in `raw` (dirty values preserved
-as text — cleaning happens in dbt later):
+### After running the pipeline
+
+Trigger `customer_transactions_pipeline` (above), then inspect the results:
 
 ```bash
-docker compose exec airflow-scheduler airflow dags trigger customer_transactions_ingestion
+# raw landing (100 rows, dirty values preserved as text)
 docker compose exec warehouse psql -U ebury -d ebury -c "SELECT count(*) FROM raw.customer_transactions;"
+
+# star schema + quarantine (expect fact=71, quarantine=29, reconciles=t)
+docker compose exec warehouse psql -U ebury -d ebury -c "SELECT (SELECT count(*) FROM analytics.fct_transactions) fact, (SELECT count(*) FROM analytics.quarantine_customer_transactions) quarantine, (SELECT reconciles FROM analytics.dq_completeness);"
 ```
 
 If you have `make`, the same actions are wrapped as `make up`, `make dbt-debug`,
@@ -118,21 +126,65 @@ source secrets from a manager (AWS Secrets Manager, GCP Secret Manager, Vault) �
   per-model observability. ([ADR 0001](docs/adr/0001-dbt-orchestration.md))
 - **Metadata vs. warehouse are separate databases** — different lifecycles, cleaner
   separation of concerns.
+- **Layered dbt with contracts.** `staging` (clean/classify) → `intermediate` → `marts`
+  (star + aggregates), in separate schemas, with **enforced model contracts** on the
+  dims/fact so downstream consumers get a stable, typed interface.
+- **Nothing is dropped silently.** Unrecoverable rows are quarantined with reasons; a
+  completeness metric reconciles received vs modelled vs quarantined.
 
 Design decisions are recorded as [ADRs](docs/adr/README.md); each change is planned in
 [`ai-plans/`](ai-plans/) before implementation (see [AGENTS.md](AGENTS.md)).
+
+## Pipeline & data model
+
+The `customer_transactions_pipeline` DAG runs ingestion, then dbt (rendered per-model by
+Cosmos), then tests:
+
+```
+acquire_source → create_raw_table → load_raw → reconcile_rowcount
+        → dbt_transform:  staging → intermediate → marts → tests
+```
+
+The dbt layers (see [ai-plans/04](ai-plans/04-dbt-transformation-star-schema.md)):
+
+| Layer | Schema | Models |
+|-------|--------|--------|
+| staging | `staging` | `stg_customer_transactions` (coerce + classify) |
+| intermediate | (ephemeral) | `int_transactions_valid` (clean rows, unknown-customer = -1) |
+| marts (star) | `analytics` | `dim_product`, `dim_date`, `dim_customer`, `fct_transactions` |
+| marts (aggregates) | `analytics` | `agg_monthly_sales`, `agg_sales_by_customer`, `agg_sales_by_product` |
+| marts (DQ) | `analytics` | `quarantine_customer_transactions`, `dq_quarantine_reasons`, `dq_completeness` |
+
+Grain of `fct_transactions` = one transaction; `total_amount = quantity × unit_price + tax`
+(tax is an absolute amount — [ADR 0005](docs/adr/0005-data-quality-strategy.md)). The
+brief's literal `dim_table` / `fact_table` names are provided as thin alias views.
+
+## Data quality & quarantine
+
+The source data is intentionally dirty. Each row is **coerced**, **quarantined**, or
+**flagged** (full report + counts in [`docs/data-quality.md`](docs/data-quality.md)):
+
+- **Coerce** recoverable formatting (strip `T`/`P` prefixes, float→int, parse both date
+  formats).
+- **Quarantine** rows whose amount can't be computed (non-numeric `price`/`tax`, missing
+  `quantity`) into `quarantine_customer_transactions` with a `dq_reasons` array — never
+  dropped. On the sample: **61 clean + 10 flagged = 71 modelled, 29 quarantined**.
+- **Flag** rows that are usable but imperfect (missing `customer_id` → unknown member).
+- **Observability:** a dbt test *warns* on any quarantine and *errors* only in the extreme;
+  `dq_completeness` reconciles received = modelled + quarantined.
 
 ## Repository layout
 
 ```
 ai-plans/            # design plans (one per change) + template + roadmap
-dags/                # Airflow DAGs
+dags/                # Airflow DAGs (customer_transactions_pipeline)
 data/                # source dataset (customer_transactions.csv)
-dbt/ebury/           # dbt project (profiles, models, tests)
+dbt/ebury/           # dbt project: models (staging/intermediate/marts), tests, macros
 db/init/             # warehouse bootstrap SQL (schemas)
 docker/airflow/      # custom Airflow image (Cosmos + isolated dbt venv)
 docs/adr/            # architecture decision records
-include/             # reusable pipeline code (ingestion package, SQL)
+docs/data-quality.md # DQ profiling report + coerce/quarantine/flag rules
+include/             # reusable pipeline code (ingestion package, profiling SQL)
 tests/               # unit + integration tests
 docker-compose.yml   # the full local stack
 ```

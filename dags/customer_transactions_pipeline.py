@@ -1,9 +1,11 @@
-"""Raw ingestion DAG (plan 02).
+"""Customer transactions pipeline (plan 04).
 
     acquire_source -> create_raw_table -> load_raw -> reconcile_rowcount
+        -> [dbt_transform: staging -> intermediate -> marts -> tests]  (via Cosmos)
 
-Lands customer_transactions.csv into raw.customer_transactions as-is (all TEXT) via a
-streaming COPY. Cleaning/modelling happen later in dbt (plans 03-04, wired via Cosmos).
+One DAG that ingests the raw CSV and then triggers dbt to build the dimensional model,
+per the brief. dbt runs from its isolated venv; Cosmos renders each dbt model/test as its
+own Airflow task (ADR 0001).
 """
 from __future__ import annotations
 
@@ -14,6 +16,14 @@ import pendulum
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from cosmos import (
+    DbtTaskGroup,
+    ExecutionConfig,
+    ProfileConfig,
+    ProjectConfig,
+    RenderConfig,
+)
+from cosmos.constants import ExecutionMode, LoadMode
 
 from ingestion.load_raw import count_data_rows, load_csv, reconcile, validate_header
 
@@ -22,17 +32,16 @@ DDL_FILE = "/opt/airflow/include/sql/create_raw_customer_transactions.sql"
 RAW_TABLE = "raw.customer_transactions"
 CONN_ID = "warehouse"
 
+DBT_PROJECT_DIR = "/opt/airflow/dbt/ebury"
+DBT_EXECUTABLE = "/opt/dbt-venv/bin/dbt"
+
 log = logging.getLogger(__name__)
 
 
 def _notify_failure(context) -> None:
-    """Failure hook stub. Full alerting (Slack/email) lands in plan 05."""
+    """Failure hook stub. Full alerting lands in plan 05."""
     ti = context.get("task_instance")
-    log.error(
-        "Ingestion task failed: task=%s run=%s",
-        getattr(ti, "task_id", "?"),
-        context.get("run_id"),
-    )
+    log.error("Pipeline task failed: task=%s run=%s", getattr(ti, "task_id", "?"), context.get("run_id"))
 
 
 default_args = {
@@ -44,7 +53,7 @@ default_args = {
 
 
 def _acquire_source() -> None:
-    validate_header(SOURCE_FILE)  # confirms existence + header shape
+    validate_header(SOURCE_FILE)
     log.info("Source acquired: %s (%d data rows)", SOURCE_FILE, count_data_rows(SOURCE_FILE))
 
 
@@ -64,13 +73,33 @@ def _reconcile() -> None:
     log.info("Reconciliation OK: %d rows", reconcile(hook, SOURCE_FILE, RAW_TABLE))
 
 
+# --- Cosmos config: run dbt from the isolated venv; packages are baked (no deps at parse) ---
+profile_config = ProfileConfig(
+    profile_name="ebury",
+    target_name="dev",
+    profiles_yml_filepath=f"{DBT_PROJECT_DIR}/profiles.yml",
+)
+project_config = ProjectConfig(dbt_project_path=DBT_PROJECT_DIR)
+execution_config = ExecutionConfig(
+    dbt_executable_path=DBT_EXECUTABLE,
+    execution_mode=ExecutionMode.LOCAL,
+)
+render_config = RenderConfig(
+    dbt_executable_path=DBT_EXECUTABLE,
+    load_method=LoadMode.DBT_LS,
+    # Cosmos runs `dbt ls` in an isolated tmp copy that lacks the baked dbt_packages,
+    # so it installs deps at render (and at execution via operator_args below).
+    dbt_deps=True,
+)
+
+
 with DAG(
-    dag_id="customer_transactions_ingestion",
+    dag_id="customer_transactions_pipeline",
     schedule=None,
     start_date=pendulum.datetime(2023, 7, 1, tz="UTC"),
     catchup=False,
     default_args=default_args,
-    tags=["ingestion", "plan-02"],
+    tags=["pipeline", "plan-04"],
     doc_md=__doc__,
 ) as dag:
     acquire_source = PythonOperator(task_id="acquire_source", python_callable=_acquire_source)
@@ -78,4 +107,13 @@ with DAG(
     load_raw = PythonOperator(task_id="load_raw", python_callable=_load_raw)
     reconcile_rowcount = PythonOperator(task_id="reconcile_rowcount", python_callable=_reconcile)
 
-    acquire_source >> create_raw_table >> load_raw >> reconcile_rowcount
+    dbt_transform = DbtTaskGroup(
+        group_id="dbt_transform",
+        project_config=project_config,
+        profile_config=profile_config,
+        execution_config=execution_config,
+        render_config=render_config,
+        operator_args={"install_deps": True},
+    )
+
+    acquire_source >> create_raw_table >> load_raw >> reconcile_rowcount >> dbt_transform
