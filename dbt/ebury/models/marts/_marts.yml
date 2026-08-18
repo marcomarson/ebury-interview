@@ -127,3 +127,10 @@ models:
         description: "True when modelled + quarantined = received."
         tests:
           - accepted_values: {values: [true]}
+
+  - name: dq_run_audit
+    description: "Append-only DQ history: one row per dbt run (invocation) with counts."
+    columns:
+      - name: invocation_id
+        description: "dbt run invocation id (unique key)."
+        tests: [not_null]

@@ -10,6 +10,7 @@ own Airflow task (ADR 0001).
 from __future__ import annotations
 
 import logging
+import os
 from datetime import timedelta
 
 import pendulum
@@ -26,6 +27,13 @@ from cosmos import (
 from cosmos.constants import ExecutionMode, LoadMode
 
 from ingestion.load_raw import count_data_rows, load_csv, reconcile, validate_header
+from observability.dq import evaluate_dq
+from observability.notifications import (
+    on_failure_callback,
+    on_retry_callback,
+    send_alert,
+    sla_miss_callback,
+)
 
 SOURCE_FILE = "/opt/airflow/data/customer_transactions.csv"
 DDL_FILE = "/opt/airflow/include/sql/create_raw_customer_transactions.sql"
@@ -38,17 +46,14 @@ DBT_EXECUTABLE = "/opt/dbt-venv/bin/dbt"
 log = logging.getLogger(__name__)
 
 
-def _notify_failure(context) -> None:
-    """Failure hook stub. Full alerting lands in plan 05."""
-    ti = context.get("task_instance")
-    log.error("Pipeline task failed: task=%s run=%s", getattr(ti, "task_id", "?"), context.get("run_id"))
-
-
 default_args = {
     "owner": "data-eng",
     "retries": 2,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": _notify_failure,
+    "retry_delay": timedelta(minutes=2),
+    "retry_exponential_backoff": True,
+    "max_retry_delay": timedelta(minutes=10),
+    "on_failure_callback": on_failure_callback,
+    "on_retry_callback": on_retry_callback,
 }
 
 
@@ -71,6 +76,37 @@ def _load_raw() -> None:
 def _reconcile() -> None:
     hook = PostgresHook(postgres_conn_id=CONN_ID)
     log.info("Reconciliation OK: %d rows", reconcile(hook, SOURCE_FILE, RAW_TABLE))
+
+
+def _dq_report() -> None:
+    """Log a DQ summary after dbt, and alert if the quarantine rate exceeds a threshold."""
+    hook = PostgresHook(postgres_conn_id=CONN_ID)
+    received, modelled, quarantined, pct, reconciles = hook.get_first(
+        "SELECT rows_received, rows_modelled, rows_quarantined, quarantine_pct, reconciles "
+        "FROM analytics.dq_completeness"
+    )
+    log.info(
+        "DQ report: received=%s modelled=%s quarantined=%s (%s%%) reconciles=%s",
+        received, modelled, quarantined, pct, reconciles,
+    )
+    for reason, n in hook.get_records(
+        "SELECT dq_reason, count(*) FROM analytics.dq_quarantine_reasons GROUP BY 1 ORDER BY 2 DESC"
+    ):
+        log.info("  quarantine reason %s: %s", reason, n)
+
+    threshold = float(os.environ.get("DQ_QUARANTINE_ALERT_PCT", "40"))
+    for event in evaluate_dq(int(received), int(modelled), int(quarantined), float(pct), threshold):
+        send_alert(
+            {
+                "event": event,
+                "dag_id": "customer_transactions_pipeline",
+                "task_id": "dq_report",
+                "run_id": None,
+                "try_number": None,
+                "exception": f"quarantine_pct={pct} threshold={threshold}",
+                "log_url": None,
+            }
+        )
 
 
 # --- Cosmos config: run dbt from the isolated venv; packages are baked (no deps at parse) ---
@@ -99,12 +135,15 @@ with DAG(
     start_date=pendulum.datetime(2023, 7, 1, tz="UTC"),
     catchup=False,
     default_args=default_args,
-    tags=["pipeline", "plan-04"],
+    sla_miss_callback=sla_miss_callback,
+    tags=["pipeline", "plan-04", "plan-05"],
     doc_md=__doc__,
 ) as dag:
     acquire_source = PythonOperator(task_id="acquire_source", python_callable=_acquire_source)
     create_raw_table = PythonOperator(task_id="create_raw_table", python_callable=_create_raw_table)
-    load_raw = PythonOperator(task_id="load_raw", python_callable=_load_raw)
+    load_raw = PythonOperator(
+        task_id="load_raw", python_callable=_load_raw, sla=timedelta(minutes=30)
+    )
     reconcile_rowcount = PythonOperator(task_id="reconcile_rowcount", python_callable=_reconcile)
 
     dbt_transform = DbtTaskGroup(
@@ -116,4 +155,6 @@ with DAG(
         operator_args={"install_deps": True},
     )
 
-    acquire_source >> create_raw_table >> load_raw >> reconcile_rowcount >> dbt_transform
+    dq_report = PythonOperator(task_id="dq_report", python_callable=_dq_report)
+
+    acquire_source >> create_raw_table >> load_raw >> reconcile_rowcount >> dbt_transform >> dq_report

@@ -29,3 +29,10 @@ models:
     marts:
       +materialized: table
       +schema: analytics
+
+# Persist failing test rows to a dedicated audit schema so DQ failures are inspectable
+# (native dbt observability). See plan 05.
+tests:
+  ebury:
+    +store_failures: true
+    +schema: dq_audit

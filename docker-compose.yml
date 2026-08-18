@@ -30,6 +30,10 @@ x-airflow-common: &airflow-common
     DBT_PROJECT_DIR: /opt/airflow/dbt/ebury
     # Warehouse Airflow Connection (used by PostgresHook) — injected, no manual UI step.
     AIRFLOW_CONN_WAREHOUSE: postgres://${WAREHOUSE_USER:-ebury}:${WAREHOUSE_PASSWORD:-ebury}@warehouse:5432/${WAREHOUSE_DB:-ebury}
+    # Observability (plan 05). Empty webhook -> alerts are logged; set a Slack/Teams
+    # incoming-webhook URL to POST them. Prod would source it from a secrets backend.
+    ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+    DQ_QUARANTINE_ALERT_PCT: ${DQ_QUARANTINE_ALERT_PCT:-40}
   volumes:
     - ./dags:/opt/airflow/dags
     # dbt: mount only the editable subdirs/files so the image's baked dbt_packages/

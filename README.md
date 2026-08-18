@@ -4,10 +4,10 @@ A containerized data pipeline that ingests `customer_transactions.csv` into Post
 transforms it with **dbt** into a dimensional model with data-quality checks, and
 orchestrates the flow with **Airflow** — all runnable via `docker compose up`.
 
-> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–04 complete** —
-> infra, raw ingestion, data-quality profiling, and the dbt star schema (with quarantine)
-> are built and verified end-to-end (see [Roadmap](ai-plans/ROADMAP.md)). Remaining plans
-> harden observability, verification, and docs.
+> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–05 complete** —
+> infra, raw ingestion, data-quality profiling, the dbt star schema (with quarantine), and
+> observability/alerting are built and verified end-to-end (see
+> [Roadmap](ai-plans/ROADMAP.md)). Remaining plans cover clean-room verification and docs.
 
 ## Stack
 
@@ -77,7 +77,7 @@ docker compose down -v
 # 1. dbt connects to the warehouse (expect: "All checks passed!")
 docker compose run --rm dbt debug
 
-# 2. Unit + integration tests (expect: "11 passed")
+# 2. Unit + integration tests (expect: "18 passed")
 docker compose run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q"
 
 # 3. Build the whole dbt project + tests directly (expect: PASS=38 WARN=1 ERROR=0)
@@ -172,6 +172,21 @@ The source data is intentionally dirty. Each row is **coerced**, **quarantined**
 - **Flag** rows that are usable but imperfect (missing `customer_id` → unknown member).
 - **Observability:** a dbt test *warns* on any quarantine and *errors* only in the extreme;
   `dq_completeness` reconciles received = modelled + quarantined.
+
+## Observability & alerting
+
+- **Alerting framework** (`include/observability/`): Airflow failure / retry / SLA callbacks
+  build a structured alert and POST it to `ALERT_WEBHOOK_URL` (Slack/Teams incoming webhook)
+  — or log it when unset. Retries use exponential backoff. The transport is the only
+  swappable piece; in production the webhook comes from a secrets backend.
+- **DQ history:** `dq_run_audit` (incremental) appends one row per run — received / modelled
+  / quarantined + per-reason counts — so quarantine trends are visible over time. For larger
+  projects, `elementary-data` would be the richer choice (noted in
+  [ai-plans/05](ai-plans/05-observability-and-exceptions.md)).
+- **Test failures persisted:** dbt `store_failures` writes offending test rows to the
+  `dq_audit` schema for inspection.
+- **Active DQ report:** the `dq_report` task logs a per-run summary and pages only when the
+  quarantine rate exceeds `DQ_QUARANTINE_ALERT_PCT` (default 40%).
 
 ## Repository layout
 
