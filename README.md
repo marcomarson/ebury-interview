@@ -4,10 +4,10 @@ A containerized data pipeline that ingests `customer_transactions.csv` into Post
 transforms it with **dbt** into a dimensional model with data-quality checks, and
 orchestrates the flow with **Airflow** — all runnable via `docker compose up`.
 
-> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–05 complete** —
-> infra, raw ingestion, data-quality profiling, the dbt star schema (with quarantine), and
-> observability/alerting are built and verified end-to-end (see
-> [Roadmap](ai-plans/ROADMAP.md)). Remaining plans cover clean-room verification and docs.
+> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–06 complete** —
+> infra, raw ingestion, data-quality profiling, the dbt star schema (with quarantine),
+> observability/alerting, and clean-room end-to-end verification are all built and verified
+> (see [Roadmap](ai-plans/ROADMAP.md)). Remaining: trade-offs writeup + final docs polish.
 
 ## Stack
 
@@ -99,8 +99,25 @@ docker compose exec warehouse psql -U ebury -d ebury -c "SELECT count(*) FROM ra
 docker compose exec warehouse psql -U ebury -d ebury -c "SELECT (SELECT count(*) FROM analytics.fct_transactions) fact, (SELECT count(*) FROM analytics.quarantine_customer_transactions) quarantine, (SELECT reconciles FROM analytics.dq_completeness);"
 ```
 
-If you have `make`, the same actions are wrapped as `make up`, `make dbt-debug`,
-`make test`, `make down`, `make clean` — run `make help` for the full list.
+### Acceptance & clean-room
+
+After the pipeline has run, the codified acceptance criteria assert the warehouse end-state
+(partition sizes, reconciliation, no duplicate PKs, `total = qty*price + tax`, referential
+integrity, dimension counts, aggregate shares):
+
+```bash
+docker compose run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q -m acceptance"
+```
+
+This was validated **from a clean room** (`docker compose down -v` → `up -d --build` →
+trigger → acceptance) — all 8 checks pass. Re-running the pipeline is **idempotent**: the
+marts are stable (fact stays 71, no duplicate PKs) while the append-only `dq_run_audit`
+gains one row per run (intended history). See
+[ai-plans/06](ai-plans/06-end-to-end-verification.md).
+
+If you have `make`, the same actions are wrapped as `make up`, `make test` (unit +
+integration), `make verify` (acceptance), `make down`, `make clean` — run `make help` for
+the full list.
 
 ## Configuration
 

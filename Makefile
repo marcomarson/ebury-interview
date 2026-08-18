@@ -3,7 +3,7 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 
-.PHONY: help build up down clean logs ps dbt-debug test
+.PHONY: help build up down clean logs ps dbt-debug test verify
 
 help:  ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -30,5 +30,8 @@ ps:  ## Show service status
 dbt-debug:  ## Run `dbt debug` against the warehouse (on-demand dbt service)
 	$(COMPOSE) run --rm dbt debug --project-dir /opt/airflow/dbt/ebury --profiles-dir /opt/airflow/dbt/ebury
 
-test:  ## Run DAG import unit tests inside the Airflow image
-	$(COMPOSE) run --rm airflow-scheduler bash -c "cd /opt/airflow && pytest tests -q"
+test:  ## Run unit + integration tests (excludes acceptance)
+	$(COMPOSE) run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q -m 'not acceptance'"
+
+verify:  ## Run the acceptance criteria against the live warehouse (trigger the pipeline first)
+	$(COMPOSE) run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q -m acceptance"

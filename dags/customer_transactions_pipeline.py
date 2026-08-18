@@ -152,7 +152,8 @@ with DAG(
         profile_config=profile_config,
         execution_config=execution_config,
         render_config=render_config,
-        operator_args={"install_deps": True},
+        # No per-task `dbt deps`: LOCAL execution runs in the project dir where packages
+        # are baked (Dockerfile `dbt deps`). Only the render step installs deps (once).
     )
 
     dq_report = PythonOperator(task_id="dq_report", python_callable=_dq_report)

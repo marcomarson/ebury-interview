@@ -11,7 +11,7 @@ written just-in-time so they reflect what the previous step actually produced.
 | 03 | Data profiling & DQ rule definition | [03-data-profiling-and-dq-rules.md](03-data-profiling-and-dq-rules.md) | ✅ Done — profiled & rules agreed |
 | 04 | dbt transform & star schema (staging → dims/fact → aggregates) via Cosmos | [04-dbt-transformation-star-schema.md](04-dbt-transformation-star-schema.md) | ✅ Done — built & verified |
 | 05 | Data quality, observability & exception handling | [05-observability-and-exceptions.md](05-observability-and-exceptions.md) | ✅ Done — built & verified |
-| 06 | End-to-end verification (clean-room deploy, reconciliation, idempotency) | _tbd_ | Not started |
+| 06 | End-to-end verification (clean-room deploy, reconciliation, idempotency) | [06-end-to-end-verification.md](06-end-to-end-verification.md) | ✅ Done — built & verified |
 | 07 | Trade-offs & enhancements writeup — **consolidates all [ADRs](../docs/adr/README.md) into one architecture-and-decisions narrative** | _tbd_ | Not started |
 | 08 | README & submission polish | _tbd_ | Not started |
 
