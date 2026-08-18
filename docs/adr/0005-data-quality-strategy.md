@@ -50,6 +50,20 @@ Two explicit judgment calls:
   is uncomputable. Revisit if the business prefers imputation.
 - The rules are dataset-specific; new dirty patterns need new rules (and a report update).
 
+## Quarantine mechanics (decided 2026-08-17)
+
+- **Storage:** one table `analytics.quarantine_customer_transactions`, one row per rejected
+  record, with `dq_reasons text[]` (all failed rules) + lineage timestamps; a companion
+  view unnests reasons for per-reason counts.
+- **Pipeline behaviour:** quarantining does **not** fail the run — a dbt test *warns* with
+  the count/rate every run and *errors* only in the extreme (empty clean set / very high
+  rate, configurable).
+- **Fact/dims from clean rows only**, with a completeness metric (received / modelled /
+  quarantined) so coverage is visible.
+- **Remediation:** fix source + re-run; idempotent truncate+load reprocesses everything.
+
+See [`docs/data-quality.md`](../data-quality.md) for the full mechanics.
+
 ## Follow-ups
 
 - Implement the split (clean vs quarantine), the star schema, and the dbt tests in plan 04.

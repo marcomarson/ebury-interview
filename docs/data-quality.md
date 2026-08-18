@@ -97,12 +97,35 @@ Evidence (`analyze_tax.sql`):
 `total_amount = quantity × price + tax`, with `subtotal = quantity × price` as pre-tax
 revenue. (Implemented in plan 04.)
 
+## Quarantine mechanics (decided)
+
+The quarantine is a lifecycle, not just a table: **capture → surface → decide → remediate
+→ reprocess**.
+
+- **Storage:** `analytics.quarantine_customer_transactions` — **one row per rejected
+  record**, carrying the original (text) values plus:
+  - `dq_reasons text[]` — all failed rules for that row (e.g. `{price_not_numeric,
+    quantity_missing_or_invalid}`),
+  - `_ingested_at`, `_quarantined_at` for lineage.
+- **Reporting view:** `analytics.dq_quarantine_reasons` **unnests** `dq_reasons` so issues
+  can be counted per reason without duplicating the stored record.
+- **Fact/dims use clean rows only** — aggregates are never distorted by rejected rows. A
+  **completeness metric** exposes `rows_received` vs `rows_modelled` vs `rows_quarantined`
+  so consumers know the coverage of what they're querying.
+- **Pipeline behaviour:** quarantining is *expected*, not a failure. A dbt test **warns**
+  with the quarantine count/rate on every run; it **errors only in the extreme**
+  (configurable — e.g. the clean set is empty, or the quarantine rate exceeds a high
+  threshold). So the pipeline completes normally with the current ~29%.
+- **Remediation loop:** a human reviews the reasons, fixes the source, and re-runs. Because
+  ingestion is idempotent *truncate+load*, a corrected source reprocesses everything
+  automatically — no manual replay needed.
+
 ## Downstream shape (plan 04)
 
 - **Staging** splits `raw` into the clean/typed set and `quarantine_customer_transactions`
-  (+ `dq_reasons`), plus per-row flags.
+  (+ `dq_reasons`), plus per-row flags (`missing_customer`).
 - **Star:** `dim_product`, `dim_date`, `dim_customer` (with unknown member), and
   `fact_transactions` at transaction grain with the measures above.
 - **Aggregates:** monthly totals, totals by customer, totals by product.
 - dbt data tests enforce these rules (uniqueness, not-null, accepted values/ranges,
-  relationships).
+  relationships) plus the quarantine-rate warn/error thresholds.
