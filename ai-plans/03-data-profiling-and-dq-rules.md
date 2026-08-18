@@ -6,7 +6,7 @@
 |-------|-------|
 | Generated Date | 2026-08-17 |
 | AI Tool/Model | Claude Opus 4.8 |
-| Status | Draft — awaiting approval |
+| Status | Done — profiled & rules agreed 2026-08-17 |
 
 ## Summary
 
@@ -144,3 +144,4 @@ both date formats, duplicate ids, zero/negative measures.
 | Date | Change |
 |------|--------|
 | 2026-08-17 | Initial version |
+| 2026-08-17 | **Profiling executed & rules agreed.** Profiling SQL added (`include/sql/profiling/`); real counts captured. Partition: 61 clean / 10 flagged / 29 quarantined. Decisions confirmed: (1) missing `quantity` (16) → quarantine; (2) `Two Hundred`/`Fifteen` → quarantine (no word→number); (3) `tax` is an **absolute amount** (corr with price ≈ 0.18, continuous non-round values) → `total = qty×price + tax`. Report: [`docs/data-quality.md`](../docs/data-quality.md); strategy: [ADR 0005](../docs/adr/0005-data-quality-strategy.md). |
