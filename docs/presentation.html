@@ -110,6 +110,23 @@
   .card .tradeoff{font-size:.82rem; color:var(--muted); border-top:1px dashed var(--line); padding-top:8px; margin-top:8px}
   .tag{font-family:"IBM Plex Mono",monospace; font-size:.66rem; color:var(--accent); border:1px solid var(--line); border-radius:6px; padding:1px 6px}
 
+  /* ADR cards */
+  .adrs{display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:14px}
+  .adr{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 18px 16px; box-shadow:var(--shadow); display:flex; flex-direction:column}
+  .adr-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .adr-id{font-family:"IBM Plex Mono",monospace; font-size:.66rem; font-weight:600; color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent); border-radius:6px; padding:2px 7px; letter-spacing:.05em; white-space:nowrap}
+  .adr h3{font-size:1.02rem; font-weight:700}
+  .adr-dec{font-size:.9rem; color:var(--muted); margin:11px 0 15px}
+  .adr-dec b{color:var(--ink)}
+  .proscons{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:auto; padding-top:14px; border-top:1px solid var(--line)}
+  .pc-h{font-family:"IBM Plex Mono",monospace; font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; margin-bottom:9px; font-weight:600}
+  .pc-h.p{color:var(--clean)} .pc-h.c{color:var(--quar)}
+  .proscons ul{list-style:none; margin:0; padding:0; display:grid; gap:7px}
+  .proscons li{font-size:.83rem; padding-left:20px; position:relative; line-height:1.4}
+  .pros li::before{content:"✓"; position:absolute; left:0; color:var(--clean); font-weight:700}
+  .cons li::before{content:"–"; position:absolute; left:3px; color:var(--quar); font-weight:700}
+  @media (max-width:520px){ .proscons{grid-template-columns:1fr; gap:14px} }
+
   /* two-column simple->upgrade */
   .two{display:grid; grid-template-columns:1fr 1fr; gap:0; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
   .two .h{padding:12px 16px; font-weight:700; font-size:.82rem; letter-spacing:.06em; text-transform:uppercase; background:var(--surface-2)}
@@ -288,42 +305,64 @@
     </div>
   </section>
 
-  <!-- 03 decisions -->
+  <!-- 03 ADRs -->
   <section>
-    <div class="snum">03 — Decisions &amp; trade-offs</div>
-    <h2>Every choice is a defensible trade-off</h2>
-    <p class="sub">Recorded as ADRs. The point of each isn't the choice — it's knowing the cost and when you'd revisit it.</p>
-    <div class="cards">
-      <div class="card">
-        <h3>ELT, land as TEXT</h3>
-        <p class="why">Dirty values survive ingest; raw stays an immutable source of truth.</p>
-        <p class="tradeoff">Trade-off: raw isn't query-ready — dbt owns cleaning.</p>
-      </div>
-      <div class="card">
-        <h3>Cosmos for dbt <span class="tag">ADR&nbsp;0001</span></h3>
-        <p class="why">Per-model Airflow tasks; dbt's env isolated from Airflow's.</p>
-        <p class="tradeoff">Guards against the real failure mode: dependency conflicts.</p>
-      </div>
-      <div class="card">
-        <h3>Quarantine vs flag <span class="tag">ADR&nbsp;0005</span></h3>
-        <p class="why">Don't drop revenue over a missing key; don't invent monetary values.</p>
-        <p class="tradeoff">Trade-off: 29% segregated on this (dirty) sample — visible, not hidden.</p>
-      </div>
-      <div class="card">
-        <h3>tax = absolute amount <span class="tag">proven</span></h3>
-        <p class="why">Correlation with price ≈ 0, continuous values — measured, not guessed.</p>
-        <p class="tradeoff">total = quantity × price + tax.</p>
-      </div>
-      <div class="card">
-        <h3>Model contracts + schemas</h3>
-        <p class="why">Typed, stable interface for consumers; staging vs analytics separated.</p>
-        <p class="tradeoff">Schema changes need an explicit update — that's the point.</p>
-      </div>
-      <div class="card">
-        <h3>Classic dbt-core <span class="tag">ADR&nbsp;0003</span></h3>
-        <p class="why">dbt 2.0 "Fusion" dropped Postgres — pinned the classic engine.</p>
-        <p class="tradeoff">Revisit when Fusion supports Postgres or we move to a cloud DW.</p>
-      </div>
+    <div class="snum">03 — Architecture Decision Records</div>
+    <h2>Five decisions, pros &amp; cons</h2>
+    <p class="sub">Every significant choice is captured as an ADR — context, options, decision,
+      consequences. Summarized here with the trade-offs; full records in <span class="mono">docs/adr/</span>.</p>
+    <div class="adrs">
+
+      <article class="adr">
+        <div class="adr-head"><span class="adr-id">ADR 0001</span><h3>Cosmos for dbt-in-Airflow</h3></div>
+        <p class="adr-dec"><b>Render dbt with Astronomer Cosmos</b> — each model becomes its own
+          Airflow task; dbt runs from an isolated venv. <span style="color:var(--muted)">Rejected: BashOperator, DockerOperator, dbt Cloud, K8s pods.</span></p>
+        <div class="proscons">
+          <div><div class="pc-h p">Pros</div><ul class="pros"><li>Per-model retries &amp; lineage in the UI</li><li>dbt env isolated from Airflow's</li><li>Community standard; scales unchanged</li></ul></div>
+          <div><div class="pc-h c">Cons</div><ul class="cons"><li>Extra dependency &amp; config surface</li><li>Installs deps at render</li><li>Arguably overkill for a few models</li></ul></div>
+        </div>
+      </article>
+
+      <article class="adr">
+        <div class="adr-head"><span class="adr-id">ADR 0002</span><h3>Config &amp; secrets</h3></div>
+        <p class="adr-dec"><b>Inline <span class="mono">${VAR:-default}</span> for local dev</b>;
+          source secrets from a manager for real deployments.</p>
+        <div class="proscons">
+          <div><div class="pc-h p">Pros</div><ul class="pros"><li>Zero-setup <span class="mono">docker compose up</span></li><li>No secrets committed to the repo</li><li>Clear seam to a secrets manager</li></ul></div>
+          <div><div class="pc-h c">Cons</div><ul class="cons"><li>Default creds in committed YAML</li><li>Local throwaway only — not deployable</li></ul></div>
+        </div>
+      </article>
+
+      <article class="adr">
+        <div class="adr-head"><span class="adr-id">ADR 0003</span><h3>Classic dbt engine</h3></div>
+        <p class="adr-dec"><b>Pin classic dbt-core 1.9</b>, not the dbt 2.0 "Fusion" pre-release
+          (which dropped the Postgres adapter).</p>
+        <div class="proscons">
+          <div><div class="pc-h p">Pros</div><ul class="pros"><li>Postgres fully supported</li><li>Reproducible, deterministic builds</li><li>Mature, stable engine</li></ul></div>
+          <div><div class="pc-h c">Cons</div><ul class="cons"><li>Not on the newer Rust engine</li><li>Revisit when Fusion supports Postgres</li></ul></div>
+        </div>
+      </article>
+
+      <article class="adr">
+        <div class="adr-head"><span class="adr-id">ADR 0004</span><h3>Bake code into the image</h3></div>
+        <p class="adr-dec"><b>COPY dags/dbt into the image</b>; compose bind-mounts override those
+          paths for fast local dev.</p>
+        <div class="proscons">
+          <div><div class="pc-h p">Pros</div><ul class="pros"><li>Immutable, shippable artifact (git SHA)</li><li>Dev speed unchanged — mount wins</li><li>Git = source of truth, image = runtime</li></ul></div>
+          <div><div class="pc-h c">Cons</div><ul class="cons"><li>Two delivery paths to keep in mind</li><li>Rebuild to ship code changes</li></ul></div>
+        </div>
+      </article>
+
+      <article class="adr">
+        <div class="adr-head"><span class="adr-id">ADR 0005</span><h3>Data-quality strategy</h3></div>
+        <p class="adr-dec"><b>Coerce · quarantine · flag.</b> Recover safe formatting; quarantine
+          broken measures with reasons; flag (don't drop) missing dimensions. No word→number; tax is absolute.</p>
+        <div class="proscons">
+          <div><div class="pc-h p">Pros</div><ul class="pros"><li>Nothing dropped silently (reconciles to 100)</li><li>Explicit, testable, auditable rules</li><li>Revenue not distorted by invented values</li></ul></div>
+          <div><div class="pc-h c">Cons</div><ul class="cons"><li>Rules are dataset-specific</li><li>Quarantines 16 missing-quantity rows</li></ul></div>
+        </div>
+      </article>
+
     </div>
   </section>
 
