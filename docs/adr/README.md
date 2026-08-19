@@ -2,8 +2,9 @@
 
 Each ADR captures one significant decision — the context, the options considered, the
 choice made, and its consequences/trade-offs. They are immutable once accepted (superseded
-rather than edited). This index is the running list; the **plan 07 trade-offs writeup**
-consolidates them into a single architecture-and-decisions narrative for submission.
+rather than edited). This index is the running list; the consolidated
+[**Architecture & trade-offs**](../architecture-and-tradeoffs.md) narrative pulls them
+together with a system diagram and the production roadmap.
 
 | # | Decision | Status |
 |---|----------|--------|

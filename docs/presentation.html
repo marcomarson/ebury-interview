@@ -1,0 +1,387 @@
+<title>Dirty CSV to Star Schema</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#f5f8fa; --surface:#ffffff; --surface-2:#eef3f7;
+    --ink:#0e2233; --muted:#57697a; --line:#e0e8ee;
+    --accent:#0c7d8c; --accent-soft:#0c7d8c1a;
+    --clean:#1f9d6b; --clean-soft:#1f9d6b1f;
+    --flag:#b9821a; --flag-soft:#b9821a20;
+    --quar:#c0483c; --quar-soft:#c0483c1c;
+    --shadow:0 1px 2px #0e223309, 0 8px 24px #0e223310;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#091420; --surface:#0f1f2b; --surface-2:#132632;
+      --ink:#e8eef4; --muted:#8fa1b1; --line:#1d3140;
+      --accent:#37c3d0; --accent-soft:#37c3d022;
+      --clean:#2fbb84; --clean-soft:#2fbb841e;
+      --flag:#d69f3f; --flag-soft:#d69f3f1e;
+      --quar:#e0655a; --quar-soft:#e0655a1c;
+      --shadow:0 1px 2px #0006, 0 10px 30px #0007;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#091420; --surface:#0f1f2b; --surface-2:#132632;
+    --ink:#e8eef4; --muted:#8fa1b1; --line:#1d3140;
+    --accent:#37c3d0; --accent-soft:#37c3d022;
+    --clean:#2fbb84; --clean-soft:#2fbb841e;
+    --flag:#d69f3f; --flag-soft:#d69f3f1e;
+    --quar:#e0655a; --quar-soft:#e0655a1c;
+    --shadow:0 1px 2px #0006, 0 10px 30px #0007;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px; margin:0 auto; padding:0 24px}
+  h1,h2,h3{font-family:"Bricolage Grotesque", system-ui, sans-serif; text-wrap:balance; margin:0}
+  .mono{font-family:"IBM Plex Mono", ui-monospace, monospace}
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace; font-size:.72rem; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--accent); font-weight:600;
+  }
+  a{color:var(--accent)}
+
+  /* ---------- hero ---------- */
+  header{
+    padding:72px 0 40px; border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 90% at 92% -10%, var(--accent-soft), transparent 60%);
+  }
+  h1{font-size:clamp(2.1rem,5.2vw,3.4rem); font-weight:800; letter-spacing:-.02em; line-height:1.04}
+  h1 .arrow{color:var(--accent)}
+  .lede{max-width:60ch; color:var(--muted); font-size:1.08rem; margin:18px 0 0}
+  .stats{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:14px; margin-top:34px;
+  }
+  .stat{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; box-shadow:var(--shadow);
+  }
+  .stat .n{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:1.5rem; font-variant-numeric:tabular-nums}
+  .stat .l{font-size:.78rem; color:var(--muted); margin-top:2px}
+  .stat.good .n{color:var(--clean)} .stat.warn .n{color:var(--flag)} .stat.acc .n{color:var(--accent)}
+
+  /* ---------- sections ---------- */
+  section{padding:52px 0; border-bottom:1px solid var(--line)}
+  .snum{font-family:"IBM Plex Mono",monospace; color:var(--accent); font-weight:600; font-size:.8rem}
+  h2{font-size:clamp(1.4rem,3vw,1.9rem); font-weight:700; letter-spacing:-.01em; margin:6px 0 6px}
+  .sub{color:var(--muted); max-width:64ch; margin:0 0 26px}
+
+  figure{margin:0}
+  figure svg{width:100%; height:auto; display:block}
+  figcaption{color:var(--muted); font-size:.85rem; margin-top:12px; text-align:center}
+  .diagram-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px; box-shadow:var(--shadow); overflow-x:auto}
+
+  /* follow the data */
+  .flow{display:grid; gap:12px}
+  .frow{
+    display:grid; grid-template-columns:1.5fr auto 1fr; align-items:center; gap:16px;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; box-shadow:var(--shadow);
+  }
+  .frow .src{font-family:"IBM Plex Mono",monospace; font-size:.82rem; color:var(--ink); word-break:break-word}
+  .frow .to{color:var(--muted); font-size:1.2rem; text-align:center}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:.86rem;
+    padding:7px 12px; border-radius:999px; border:1px solid; white-space:nowrap;
+  }
+  .pill.clean{color:var(--clean); background:var(--clean-soft); border-color:var(--clean)}
+  .pill.flag{color:var(--flag); background:var(--flag-soft); border-color:var(--flag)}
+  .pill.quar{color:var(--quar); background:var(--quar-soft); border-color:var(--quar)}
+  .dot{width:8px; height:8px; border-radius:50%; background:currentColor}
+  .ruleline{margin-top:18px; padding:14px 18px; border-left:3px solid var(--accent); background:var(--surface-2); border-radius:0 10px 10px 0; font-size:.95rem}
+
+  /* cards grid */
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:var(--shadow)}
+  .card h3{font-size:1rem; font-weight:700; margin-bottom:8px; display:flex; gap:8px; align-items:baseline}
+  .card .why{font-size:.9rem; margin:0 0 8px}
+  .card .tradeoff{font-size:.82rem; color:var(--muted); border-top:1px dashed var(--line); padding-top:8px; margin-top:8px}
+  .tag{font-family:"IBM Plex Mono",monospace; font-size:.66rem; color:var(--accent); border:1px solid var(--line); border-radius:6px; padding:1px 6px}
+
+  /* two-column simple->upgrade */
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:0; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
+  .two .h{padding:12px 16px; font-weight:700; font-size:.82rem; letter-spacing:.06em; text-transform:uppercase; background:var(--surface-2)}
+  .two .h.up{color:var(--accent)}
+  .row2{display:contents}
+  .two .c{padding:12px 16px; border-top:1px solid var(--line); font-size:.9rem}
+  .two .c.simple{color:var(--ink)} .two .c.up{color:var(--muted)}
+
+  /* roadmap */
+  .roadmap{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px}
+  .area{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; box-shadow:var(--shadow)}
+  .area .t{font-weight:700; font-size:.92rem; margin-bottom:8px; color:var(--accent)}
+  .area ul{margin:0; padding-left:16px; font-size:.85rem; color:var(--muted)}
+  .area li{margin:4px 0}
+
+  /* cheat sheet */
+  .cheat{background:linear-gradient(180deg,var(--accent-soft),transparent); border:1px solid var(--accent); border-radius:var(--radius)}
+  .cheat-in{padding:26px}
+  .points{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-top:4px}
+  .point{display:flex; gap:12px}
+  .point .k{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; color:var(--accent); font-size:1.1rem; line-height:1.3}
+  .point .v{font-size:.92rem}
+  .story{margin-top:20px; padding:16px 18px; background:var(--surface); border:1px solid var(--line); border-radius:10px; font-size:.92rem}
+  .story b{color:var(--clean)}
+
+  footer{padding:34px 0 60px; color:var(--muted); font-size:.85rem}
+  @media (max-width:640px){
+    .frow{grid-template-columns:1fr; gap:10px}
+    .frow .to{transform:rotate(90deg)}
+    .two{grid-template-columns:1fr}
+    .two .h.simple{display:none}
+  }
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Senior Data Engineer · Platform · Case study</div>
+    <h1>Dirty CSV <span class="arrow">→</span> a governed star schema</h1>
+    <p class="lede">Airflow + dbt + PostgreSQL, containerized and deployable with one command.
+      The interesting part isn't the pipeline — it's how every dirty row is <em>handled</em>,
+      not dropped, and how the whole thing is built to scale.</p>
+    <div class="stats">
+      <div class="stat acc"><div class="n">100</div><div class="l">rows ingested</div></div>
+      <div class="stat good"><div class="n">71</div><div class="l">modelled (fact)</div></div>
+      <div class="stat warn"><div class="n">29</div><div class="l">quarantined, with reasons</div></div>
+      <div class="stat good"><div class="n">0</div><div class="l">rows dropped silently</div></div>
+      <div class="stat acc"><div class="n">36s</div><div class="l">full pipeline run</div></div>
+      <div class="stat"><div class="n">26</div><div class="l">automated tests</div></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 01 pipeline -->
+  <section>
+    <div class="snum">01 — The mechanism</div>
+    <h2>One DAG: ingest, then transform</h2>
+    <p class="sub">Airflow orchestrates the flow; dbt does the transformation, rendered by
+      Cosmos so <em>each model is its own Airflow task</em>. The raw CSV lands as text — nothing
+      is rejected at ingest — then dbt cleans, splits, and models it.</p>
+
+    <div class="diagram-card">
+      <figure>
+        <svg viewBox="0 0 960 380" role="img" aria-label="Pipeline: CSV ingested via streaming COPY into a raw all-text table, dbt staging coerces and classifies each row, valid rows flow to intermediate then dims and fact then aggregates, invalid rows are quarantined with reasons, and an observability step reports data quality.">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="currentColor"/></marker>
+            <marker id="ahg" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--clean)"/></marker>
+            <marker id="ahr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--quar)"/></marker>
+          </defs>
+
+          <!-- orchestration band -->
+          <rect x="8" y="8" width="944" height="364" rx="14" fill="none" stroke="var(--line)"/>
+          <text x="26" y="30" class="mono" font-size="11" fill="var(--muted)">AIRFLOW — customer_transactions_pipeline</text>
+
+          <g font-family="IBM Plex Sans" font-size="13" fill="var(--ink)">
+            <!-- CSV -->
+            <rect x="26" y="150" width="120" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+            <text x="86" y="176" text-anchor="middle" font-weight="600">CSV</text>
+            <text x="86" y="194" text-anchor="middle" font-size="10.5" fill="var(--muted)">source extract</text>
+
+            <!-- raw -->
+            <rect x="196" y="150" width="132" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+            <text x="262" y="174" text-anchor="middle" font-weight="600">raw table</text>
+            <text x="262" y="192" text-anchor="middle" font-size="10.5" fill="var(--muted)">ALL TEXT · as-is</text>
+
+            <!-- staging (splitter) -->
+            <rect x="378" y="140" width="150" height="80" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <text x="453" y="170" text-anchor="middle" font-weight="700">dbt staging</text>
+            <text x="453" y="188" text-anchor="middle" font-size="10.5" fill="var(--muted)">coerce + classify</text>
+            <text x="453" y="203" text-anchor="middle" font-size="10.5" fill="var(--muted)">dq_reasons · is_valid</text>
+
+            <!-- valid: dims+fact -->
+            <rect x="590" y="70" width="160" height="66" rx="10" fill="var(--clean-soft)" stroke="var(--clean)"/>
+            <text x="670" y="96" text-anchor="middle" font-weight="700">dims + fact</text>
+            <text x="670" y="114" text-anchor="middle" font-size="10.5" fill="var(--muted)">star schema · 71 rows</text>
+
+            <!-- aggregates -->
+            <rect x="798" y="70" width="132" height="66" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+            <text x="864" y="96" text-anchor="middle" font-weight="600">aggregates</text>
+            <text x="864" y="114" text-anchor="middle" font-size="10.5" fill="var(--muted)">monthly · cust · prod</text>
+
+            <!-- observability -->
+            <rect x="590" y="164" width="160" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+            <text x="670" y="188" text-anchor="middle" font-weight="600">dq_report + audit</text>
+            <text x="670" y="205" text-anchor="middle" font-size="10.5" fill="var(--muted)">alert if % &gt; threshold</text>
+
+            <!-- quarantine -->
+            <rect x="590" y="256" width="160" height="66" rx="10" fill="var(--quar-soft)" stroke="var(--quar)"/>
+            <text x="670" y="282" text-anchor="middle" font-weight="700">quarantine</text>
+            <text x="670" y="300" text-anchor="middle" font-size="10.5" fill="var(--muted)">+ reasons · 29 rows</text>
+          </g>
+
+          <!-- arrows -->
+          <g stroke-width="1.6" fill="none" font-family="IBM Plex Mono" font-size="10">
+            <line x1="146" y1="180" x2="190" y2="180" stroke="currentColor" marker-end="url(#ah)"/>
+            <text x="168" y="172" text-anchor="middle" fill="var(--muted)">COPY</text>
+
+            <line x1="328" y1="180" x2="372" y2="180" stroke="currentColor" marker-end="url(#ah)"/>
+
+            <!-- staging -> valid (up) -->
+            <path d="M528 165 C 558 150, 560 103, 584 103" stroke="var(--clean)" marker-end="url(#ahg)"/>
+            <text x="556" y="120" text-anchor="middle" fill="var(--clean)">is_valid</text>
+
+            <!-- staging -> quarantine (down) -->
+            <path d="M528 195 C 558 214, 560 289, 584 289" stroke="var(--quar)" marker-end="url(#ahr)"/>
+            <text x="551" y="250" text-anchor="middle" fill="var(--quar)">broken measure</text>
+
+            <!-- fact -> aggregates -->
+            <line x1="750" y1="103" x2="792" y2="103" stroke="currentColor" marker-end="url(#ah)"/>
+            <!-- fact -> observability -->
+            <path d="M670 136 L 670 160" stroke="currentColor" marker-end="url(#ah)"/>
+          </g>
+        </svg>
+        <figcaption>The split is the whole idea: a row is quarantined only when its <em>amount</em>
+          can't be computed — everything else is recovered or flagged, never dropped.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 02 follow the data -->
+  <section>
+    <div class="snum">02 — Follow the data</div>
+    <h2>Four rows, three fates</h2>
+    <p class="sub">The fastest way to understand the design: watch what happens to real rows from
+      the deliberately-dirty source.</p>
+
+    <div class="flow">
+      <div class="frow">
+        <div class="src">1001, <b>501.0</b>, 2023-07-11, 101, Product A, 1, 76.27, 8.23</div>
+        <div class="to">→</div>
+        <span class="pill clean"><span class="dot"></span>Fact row · <span class="mono">501.0→501</span></span>
+      </div>
+      <div class="frow">
+        <div class="src"><b>T1010</b>, 500.0, …, <b>P100</b>, …, 4, 200.35, 17.34</div>
+        <div class="to">→</div>
+        <span class="pill clean"><span class="dot"></span>Fact row · prefixes stripped</span>
+      </div>
+      <div class="frow">
+        <div class="src">1007, <b>(empty)</b>, …, 5, 78.28, 18.24</div>
+        <div class="to">→</div>
+        <span class="pill flag"><span class="dot"></span>Fact row · flagged, unknown customer (-1)</span>
+      </div>
+      <div class="frow">
+        <div class="src">1009, 509.0, …, 5, <b>Two Hundred</b>, 10.69</div>
+        <div class="to">→</div>
+        <span class="pill quar"><span class="dot"></span>Quarantined · <span class="mono">price_not_numeric</span></span>
+      </div>
+    </div>
+
+    <div class="ruleline">
+      <b>The rule in one line:</b> recover formatting where safe · <span style="color:var(--quar)">quarantine</span>
+      when the amount can't be computed (bad price / tax / quantity) · <span style="color:var(--flag)">flag</span>
+      (don't drop) a usable row missing a dimension like the customer. And it reconciles:
+      <span class="mono">71 modelled + 29 quarantined = 100</span>.
+    </div>
+  </section>
+
+  <!-- 03 decisions -->
+  <section>
+    <div class="snum">03 — Decisions &amp; trade-offs</div>
+    <h2>Every choice is a defensible trade-off</h2>
+    <p class="sub">Recorded as ADRs. The point of each isn't the choice — it's knowing the cost and when you'd revisit it.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>ELT, land as TEXT</h3>
+        <p class="why">Dirty values survive ingest; raw stays an immutable source of truth.</p>
+        <p class="tradeoff">Trade-off: raw isn't query-ready — dbt owns cleaning.</p>
+      </div>
+      <div class="card">
+        <h3>Cosmos for dbt <span class="tag">ADR&nbsp;0001</span></h3>
+        <p class="why">Per-model Airflow tasks; dbt's env isolated from Airflow's.</p>
+        <p class="tradeoff">Guards against the real failure mode: dependency conflicts.</p>
+      </div>
+      <div class="card">
+        <h3>Quarantine vs flag <span class="tag">ADR&nbsp;0005</span></h3>
+        <p class="why">Don't drop revenue over a missing key; don't invent monetary values.</p>
+        <p class="tradeoff">Trade-off: 29% segregated on this (dirty) sample — visible, not hidden.</p>
+      </div>
+      <div class="card">
+        <h3>tax = absolute amount <span class="tag">proven</span></h3>
+        <p class="why">Correlation with price ≈ 0, continuous values — measured, not guessed.</p>
+        <p class="tradeoff">total = quantity × price + tax.</p>
+      </div>
+      <div class="card">
+        <h3>Model contracts + schemas</h3>
+        <p class="why">Typed, stable interface for consumers; staging vs analytics separated.</p>
+        <p class="tradeoff">Schema changes need an explicit update — that's the point.</p>
+      </div>
+      <div class="card">
+        <h3>Classic dbt-core <span class="tag">ADR&nbsp;0003</span></h3>
+        <p class="why">dbt 2.0 "Fusion" dropped Postgres — pinned the classic engine.</p>
+        <p class="tradeoff">Revisit when Fusion supports Postgres or we move to a cloud DW.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 kept simple -->
+  <section>
+    <div class="snum">04 — Judgment</div>
+    <h2>What I kept simple — on purpose</h2>
+    <p class="sub">Seniority is as much what you <em>don't</em> build. Each is right at this scale, with a known upgrade path.</p>
+    <div class="two">
+      <div class="h simple">Kept simple</div><div class="h up">Upgrade path</div>
+      <div class="c simple">LocalExecutor</div><div class="c up">Celery / Kubernetes executor</div>
+      <div class="c simple">Single Postgres warehouse</div><div class="c up">Cloud DW (Snowflake / BigQuery)</div>
+      <div class="c simple">Full-refresh marts</div><div class="c up">Incremental models (unique_key)</div>
+      <div class="c simple">Log-based alerting (webhook-ready)</div><div class="c up">Slack / PagerDuty transport</div>
+      <div class="c simple">Lightweight DQ audit table</div><div class="c up">elementary-data (history + anomalies)</div>
+    </div>
+  </section>
+
+  <!-- 05 scaling -->
+  <section>
+    <div class="snum">05 — The road to production</div>
+    <h2>How this scales</h2>
+    <p class="sub">The design is a drop-in on-ramp — most steps are a change of mode, not a re-architecture.</p>
+    <div class="roadmap">
+      <div class="area"><div class="t">Orchestration</div><ul><li>Cosmos DBT_MANIFEST (no deps at parse)</li><li>KubernetesPodOperator / pods</li><li>Celery / K8s executor</li></ul></div>
+      <div class="area"><div class="t">Warehouse &amp; modelling</div><ul><li>Cloud DW → unlocks dbt Fusion</li><li>Incremental fact &amp; audit</li><li>Snapshots for SCD</li></ul></div>
+      <div class="area"><div class="t">CI/CD</div><ul><li>dbt build on throwaway Postgres</li><li>Slim CI (state:modified)</li><li>Image tagged per git SHA</li></ul></div>
+      <div class="area"><div class="t">Observability</div><ul><li>elementary-data</li><li>Prometheus / Grafana</li><li>Real alert transport</li></ul></div>
+      <div class="area"><div class="t">Governance (fintech)</div><ul><li>Catalog + lineage</li><li>Grants per schema</li><li>PII tagging &amp; masking</li></ul></div>
+      <div class="area"><div class="t">Security</div><ul><li>Secrets manager</li><li>Least-privilege roles</li><li>Image scanning</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 06 cheat sheet -->
+  <section style="border-bottom:none">
+    <div class="snum">06 — For the call</div>
+    <h2>Six things worth saying out loud</h2>
+    <div class="cheat"><div class="cheat-in">
+      <div class="points">
+        <div class="point"><div class="k">1</div><div class="v"><b>"I landed raw as text on purpose."</b> ELT — dirty data survives ingest; dbt owns cleaning.</div></div>
+        <div class="point"><div class="k">2</div><div class="v"><b>"Nothing is dropped silently."</b> Coerce / quarantine / flag, with reasons, reconciled to 100.</div></div>
+        <div class="point"><div class="k">3</div><div class="v"><b>"dbt is decoupled from Airflow."</b> Isolated venv + Cosmos per-model tasks.</div></div>
+        <div class="point"><div class="k">4</div><div class="v"><b>"tax is absolute — and I proved it."</b> Correlation ≈ 0, not a guess.</div></div>
+        <div class="point"><div class="k">5</div><div class="v"><b>"Contracts + schemas + tests."</b> A stable interface — governance, not just transformation.</div></div>
+        <div class="point"><div class="k">6</div><div class="v"><b>"I know what I kept simple"</b> — and the exact upgrade path for each.</div></div>
+      </div>
+      <div class="story">
+        <b>One story to tell:</b> during clean-room verification I found Cosmos running <span class="mono">dbt deps</span>
+        per task (~40×) — a run took <b style="color:var(--quar)">5 minutes</b>. LOCAL execution runs in the project
+        dir where packages are already baked, so I removed the per-task install: the pipeline dropped to
+        <b>36 seconds</b>. That's the platform mindset — measure, find the waste, fix it.
+      </div>
+    </div></div>
+  </section>
+
+  <footer>
+    Ebury data-engineering case study · Airflow · dbt · PostgreSQL · Docker Compose ·
+    deployable with <span class="mono">docker compose up</span>. Full write-up in
+    <span class="mono">docs/architecture-and-tradeoffs.md</span>.
+  </footer>
+</main>

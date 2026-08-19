@@ -150,7 +150,9 @@ source secrets from a manager (AWS Secrets Manager, GCP Secret Manager, Vault) �
   completeness metric reconciles received vs modelled vs quarantined.
 
 Design decisions are recorded as [ADRs](docs/adr/README.md); each change is planned in
-[`ai-plans/`](ai-plans/) before implementation (see [AGENTS.md](AGENTS.md)).
+[`ai-plans/`](ai-plans/) before implementation (see [AGENTS.md](AGENTS.md)). For the whole
+story in one place — architecture, trade-offs, and the production roadmap — see
+[**Architecture & trade-offs**](docs/architecture-and-tradeoffs.md).
 
 ## Pipeline & data model
 
