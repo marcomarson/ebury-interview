@@ -102,6 +102,26 @@
   .dot{width:8px; height:8px; border-radius:50%; background:currentColor}
   .ruleline{margin-top:18px; padding:14px 18px; border-left:3px solid var(--accent); background:var(--surface-2); border-radius:0 10px 10px 0; font-size:.95rem}
 
+  /* medallion layers */
+  .layers{display:flex; align-items:stretch; gap:10px; margin-bottom:20px; flex-wrap:wrap}
+  .layer{flex:1; min-width:190px; border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:3px; background:var(--surface)}
+  .layer .lbl{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:.98rem}
+  .layer .d{font-size:.8rem; color:var(--muted)}
+  .layer .sch{font-size:.72rem; color:var(--accent); margin-top:5px}
+  .layer.bronze{border-color:var(--flag); background:var(--flag-soft)} .layer.bronze .lbl{color:var(--flag)}
+  .layer.silver{border-color:var(--muted)}
+  .layer.gold{border-color:var(--accent); background:var(--accent-soft)} .layer.gold .lbl{color:var(--accent)}
+  .lsep{align-self:center; color:var(--muted); font-size:1.3rem}
+  /* fates */
+  .fates{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px}
+  .fate{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow)}
+  .fate.flag{border-left:3px solid var(--flag)}
+  .fate.quar{border-left:3px solid var(--quar)}
+  .fate-h{display:flex; align-items:center; gap:9px; font-weight:700; font-size:.95rem; margin-bottom:9px; flex-wrap:wrap}
+  .fate p{margin:0; font-size:.87rem; color:var(--muted)}
+  .fate p b{color:var(--ink)}
+  @media (max-width:640px){ .fates{grid-template-columns:1fr}; .lsep{transform:rotate(90deg)} }
+
   /* cards grid */
   .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px}
   .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:var(--shadow)}
@@ -184,10 +204,19 @@
   <!-- 01 pipeline -->
   <section>
     <div class="snum">01 — The mechanism</div>
-    <h2>One DAG: ingest, then transform</h2>
-    <p class="sub">Airflow orchestrates the flow; dbt does the transformation, rendered by
-      Cosmos so <em>each model is its own Airflow task</em>. The raw CSV lands as text — nothing
-      is rejected at ingest — then dbt cleans, splits, and models it.</p>
+    <h2>Three layers: raw → silver → gold</h2>
+    <p class="sub">A medallion architecture. <b>Bronze/raw</b> lands the CSV as-is; <b>Silver/staging</b>
+      cleans, types &amp; classifies it (and does the valid-vs-quarantine split); <b>Gold/marts</b> is
+      the business-ready star. Airflow orchestrates; dbt transforms, rendered by Cosmos so
+      <em>each model is its own Airflow task</em>.</p>
+
+    <div class="layers">
+      <div class="layer bronze"><span class="lbl">Bronze · raw</span><span class="d">CSV landed as TEXT, exactly as received — immutable</span><span class="sch mono">schema: raw</span></div>
+      <span class="lsep">→</span>
+      <div class="layer silver"><span class="lbl">Silver · staging</span><span class="d">typed, cleaned, classified → split valid vs quarantine</span><span class="sch mono">schema: staging</span></div>
+      <span class="lsep">→</span>
+      <div class="layer gold"><span class="lbl">Gold · marts</span><span class="d">star schema + aggregates, ready to query</span><span class="sch mono">schema: analytics</span></div>
+    </div>
 
     <div class="diagram-card">
       <figure>
@@ -211,7 +240,7 @@
             <!-- raw -->
             <rect x="196" y="150" width="132" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
             <text x="262" y="174" text-anchor="middle" font-weight="600">raw table</text>
-            <text x="262" y="192" text-anchor="middle" font-size="10.5" fill="var(--muted)">ALL TEXT · as-is</text>
+            <text x="262" y="192" text-anchor="middle" font-size="10.5" fill="var(--muted)">Bronze · all text</text>
 
             <!-- staging (splitter) -->
             <rect x="378" y="140" width="150" height="80" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
@@ -222,7 +251,7 @@
             <!-- valid: dims+fact -->
             <rect x="590" y="70" width="160" height="66" rx="10" fill="var(--clean-soft)" stroke="var(--clean)"/>
             <text x="670" y="96" text-anchor="middle" font-weight="700">dims + fact</text>
-            <text x="670" y="114" text-anchor="middle" font-size="10.5" fill="var(--muted)">star schema · 71 rows</text>
+            <text x="670" y="114" text-anchor="middle" font-size="10.5" fill="var(--muted)">Gold · star · 71 rows</text>
 
             <!-- aggregates -->
             <rect x="798" y="70" width="132" height="66" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
@@ -302,6 +331,23 @@
       when the amount can't be computed (bad price / tax / quantity) · <span style="color:var(--flag)">flag</span>
       (don't drop) a usable row missing a dimension like the customer. And it reconciles:
       <span class="mono">71 modelled + 29 quarantined = 100</span>.
+    </div>
+
+    <div class="fates">
+      <div class="fate flag">
+        <div class="fate-h"><span class="pill flag"><span class="dot"></span>flagged</span> stays in Gold</div>
+        <p>Kept in <b>fct_transactions</b>, attributed to the <b>unknown customer (-1)</b> with
+          <span class="mono">missing_customer = true</span>. It still counts in revenue — in
+          <span class="mono">agg_sales_by_customer</span> it shows as <span class="mono">is_unknown</span>,
+          so analysts include or exclude it on purpose. Nothing hidden, nothing lost.</p>
+      </div>
+      <div class="fate quar">
+        <div class="fate-h"><span class="pill quar"><span class="dot"></span>quarantined</span> segregated &amp; remediated</div>
+        <p>Split off in Silver to <b>quarantine_customer_transactions</b> with its
+          <span class="mono">dq_reasons</span>. Surfaced by <span class="mono">dq_completeness</span> /
+          <span class="mono">dq_run_audit</span> and alerted past a threshold. Remediation loop:
+          <b>fix the source → re-run</b> (idempotent) reprocesses it back into the model.</p>
+      </div>
     </div>
   </section>
 

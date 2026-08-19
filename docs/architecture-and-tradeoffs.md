@@ -35,9 +35,16 @@ flowchart TB
     classDef dq fill:#c832,stroke:#c83;
 ```
 
-**Layers (the "dbt way"):** `staging` (clean/classify) → `intermediate` (clean set) →
-`marts` (star + aggregates + DQ), landing in **separate schemas** (`staging`, `analytics`),
-with the audit/test-failures in `dq_audit`.
+**Layers — medallion (raw → silver → gold):**
+
+| Layer | In this repo | What it holds |
+|-------|--------------|---------------|
+| **Bronze / raw** | schema `raw` | the CSV landed as-is, all TEXT — immutable source |
+| **Silver / staging** | schema `staging` (`stg_…` + `int_…`) | typed, cleaned, **classified** → valid vs quarantine |
+| **Gold / marts** | schema `analytics` (dims, fact, aggregates) | business-ready star schema + summaries |
+
+Test-failures and the DQ audit live in a `dq_audit` schema. (In dbt terms: `staging` ≈
+silver, `marts` ≈ gold.)
 
 ---
 
@@ -58,6 +65,18 @@ usable but missing a *dimension* like the customer.
 
 Result on the 100-row sample: **61 clean + 10 flagged = 71 modelled, 29 quarantined** — and
 `dq_completeness` proves `71 + 29 = 100` (nothing lost).
+
+**What happens to each afterwards:**
+
+- **Flagged rows** flow all the way to **Gold**: they sit in `fct_transactions` with
+  `customer_id = -1` (the unknown-customer member) and `missing_customer = true`. They still
+  count in revenue — in `agg_sales_by_customer` they appear as `is_unknown`, so a consumer
+  includes or excludes them deliberately. Visible, not hidden.
+- **Quarantined rows** are split off in **Silver** and never reach Gold. They land in
+  `quarantine_customer_transactions` with `dq_reasons`, are surfaced by `dq_completeness` /
+  `dq_run_audit` (and alerted past a threshold), and re-enter the model through the
+  **remediation loop**: fix the source → re-run (idempotent `truncate+load` reprocesses
+  everything).
 
 ---
 
