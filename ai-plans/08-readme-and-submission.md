@@ -6,7 +6,7 @@
 |-------|-------|
 | Generated Date | 2026-08-19 |
 | AI Tool/Model | Claude Opus 4.8 |
-| Status | Draft — awaiting approval |
+| Status | Done — submission-ready 2026-08-19 |
 
 ## Summary
 
@@ -96,3 +96,4 @@ a documentation/link review.
 | Date | Change |
 |------|--------|
 | 2026-08-19 | Initial version |
+| 2026-08-19 | Confirmed: no committed CI (kept as a talking point — a naive `dbt build` CI would fail without seeding `raw`). **Implemented & verified.** README: completion status, a **"How this maps to the brief"** table, quarantine-first note, fixed test/dbt counts (18 / PASS=40). Repo hygiene: `git ls-files` shows no secrets/artefacts/PDF. **Final clean-room sign-off:** `down -v` → `up -d --build` (healthy ~30s) → pipeline **SUCCESS** → acceptance **8/8**, unit+integration **18/18**. Submission-ready. |

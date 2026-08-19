@@ -4,10 +4,23 @@ A containerized data pipeline that ingests `customer_transactions.csv` into Post
 transforms it with **dbt** into a dimensional model with data-quality checks, and
 orchestrates the flow with **Airflow** — all runnable via `docker compose up`.
 
-> Take-home for the Senior Data Engineer (Platform) role. **Status: Plans 01–06 complete** —
-> infra, raw ingestion, data-quality profiling, the dbt star schema (with quarantine),
-> observability/alerting, and clean-room end-to-end verification are all built and verified
-> (see [Roadmap](ai-plans/ROADMAP.md)). Remaining: trade-offs writeup + final docs polish.
+> Take-home for the Senior Data Engineer (Platform) role. **Status: complete** — the full
+> pipeline (infra → ingestion → dbt star schema + quarantine → observability) is built and
+> verified from a clean room. Design reasoning lives in the [ADRs](docs/adr/README.md) and the
+> consolidated [Architecture &amp; trade-offs](docs/architecture-and-tradeoffs.md); the build is
+> tracked plan-by-plan in the [Roadmap](ai-plans/ROADMAP.md).
+
+## How this maps to the brief
+
+| The brief asks for… | Delivered |
+|---------------------|-----------|
+| Ingest the CSV into Postgres **efficiently** | streaming `COPY` (memory-flat), `include/ingestion/`, DAG task `load_raw` |
+| **dbt** cleaning + a `dim_table` and `fact_table` | full star (`dim_product` / `dim_date` / `dim_customer`, `fct_transactions`) with `dim_table` / `fact_table` alias views; `stg_customer_transactions` coerces &amp; standardizes; **model contracts** |
+| **Aggregations** (monthly, by customer) — *"consider what to include"* | `agg_monthly_sales`, `agg_sales_by_customer`, `agg_sales_by_product`, each with insight metrics (avg order value, revenue share, recency) |
+| **Airflow DAG**: ingest → trigger dbt; retries / notifications | `customer_transactions_pipeline` (dbt via Cosmos), retries + exponential backoff, failure / SLA alert callbacks |
+| **Data quality**: checks, log / flag issues | coerce / quarantine / flag with `dq_reasons`; dbt tests; `dq_completeness`; `dq_run_audit`; `store_failures` |
+| **Docker Compose**: Postgres + Airflow + dbt, `docker compose up` | `docker-compose.yml` + custom image; verified from a clean room |
+| **Platform** focus: best practices, scalability, governance | ADRs, contracts, separate schemas, the [production roadmap](docs/architecture-and-tradeoffs.md) |
 
 ## Stack
 
@@ -78,9 +91,9 @@ docker compose down -v
 docker compose run --rm dbt debug
 
 # 2. Unit + integration tests (expect: "18 passed")
-docker compose run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q"
+docker compose run --rm --entrypoint bash airflow-scheduler -lc "cd /opt/airflow && pytest tests -q -m 'not acceptance'"
 
-# 3. Build the whole dbt project + tests directly (expect: PASS=38 WARN=1 ERROR=0)
+# 3. Build the whole dbt project + tests directly (expect: PASS=40 WARN=1 ERROR=0)
 docker compose run --rm dbt build
 ```
 
@@ -189,6 +202,9 @@ The source data is intentionally dirty. Each row is **coerced**, **quarantined**
   `quantity`) into `quarantine_customer_transactions` with a `dq_reasons` array — never
   dropped. On the sample: **61 clean + 10 flagged = 71 modelled, 29 quarantined**.
 - **Flag** rows that are usable but imperfect (missing `customer_id` → unknown member).
+- **Quarantine-first & extensible.** New/unexpected-but-detectable issues (implausible values,
+  duplicate grain) are quarantined *with a reason — the run stays green* — while the dbt tests
+  stay as a backstop. Adding a rule is a localized change in `stg_customer_transactions`.
 - **Observability:** a dbt test *warns* on any quarantine and *errors* only in the extreme;
   `dq_completeness` reconciles received = modelled + quarantined.
 
