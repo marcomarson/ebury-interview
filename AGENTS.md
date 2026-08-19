@@ -25,4 +25,15 @@ This repository is a case study / take-home for a **Senior Data Engineer** role 
 
 ## Conventions
 
-_TBD — fill in once stack is chosen (language, formatter/linter, test runner, directory layout, naming)._
+* **Stack:** PostgreSQL 16, Airflow 2.9 (LocalExecutor), dbt (dbt-core 1.9 / dbt-postgres) via
+  Astronomer Cosmos, orchestrated with Docker Compose. dbt runs in an isolated venv.
+* **Languages:** Python for DAGs & ingestion; SQL/Jinja for dbt models.
+* **Layout:** `dags/` (thin DAGs — logic lives in `include/`), `include/` (reusable Python +
+  SQL, on `PYTHONPATH`), `dbt/ebury/` (`models/{staging,intermediate,marts}`, `tests/`,
+  `macros/`), `db/init/` (warehouse bootstrap), `docker/` (images), `tests/` (pytest),
+  `data/` (dataset), `docs/adr/` (decision records), `ai-plans/` (plans).
+* **Naming:** dbt models `stg_` / `int_` / `dim_` / `fct_` / `agg_` / `dq_`; plans
+  `NN-kebab-case.md`; schemas `raw` (bronze) / `staging` (silver) / `analytics` (gold) + `dq_audit`.
+* **Testing:** `pytest` (default run = unit + integration; `acceptance` marker for the
+  warehouse end-state) plus dbt data tests (generic + singular) with model contracts on the marts.
+* **Commits:** conventional prefixes (`feat:`, `docs:`, `chore:`), one logical change each.
