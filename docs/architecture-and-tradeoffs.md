@@ -78,6 +78,12 @@ Result on the 100-row sample: **61 clean + 10 flagged = 71 modelled, 29 quaranti
   **remediation loop**: fix the source → re-run (idempotent `truncate+load` reprocesses
   everything).
 
+> **Corrections overwrite, never duplicate.** You fix the *source*, not the mart. Because the
+> fact is full-refresh, a corrected transaction is rebuilt in place — same `transaction_id`,
+> its `missing_customer` flag cleared — so the partitions still reconcile and there's no
+> duplicate. (At scale, the incremental path would use `unique_key` + a `merge` strategy to
+> upsert corrections rather than append them — the one place a naive setup would double a row.)
+
 ---
 
 ## 3. Key decisions & trade-offs

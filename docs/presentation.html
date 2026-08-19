@@ -120,6 +120,8 @@
   .fate-h{display:flex; align-items:center; gap:9px; font-weight:700; font-size:.95rem; margin-bottom:9px; flex-wrap:wrap}
   .fate p{margin:0; font-size:.87rem; color:var(--muted)}
   .fate p b{color:var(--ink)}
+  .fatenote{margin-top:14px; font-size:.85rem; color:var(--muted); padding:13px 16px; background:var(--surface-2); border-radius:10px; border-left:3px solid var(--accent)}
+  .fatenote b{color:var(--ink)}
   @media (max-width:640px){ .fates{grid-template-columns:1fr}; .lsep{transform:rotate(90deg)} }
 
   /* DQ decision table */
@@ -384,6 +386,12 @@
           <b>fix the source → re-run</b> (idempotent) reprocesses it back into the model.</p>
       </div>
     </div>
+
+    <p class="fatenote"><b>Fixing a row?</b> Correct the <b>source</b> and re-run — you never patch the marts.
+      The fact is full-refresh, so the corrected transaction is <b>rebuilt in place</b> (same
+      <span class="mono">transaction_id</span>, flag cleared) — never a duplicate. At scale, the incremental
+      path uses <span class="mono">unique_key</span> + <span class="mono">merge</span> to upsert — the one
+      spot a naive setup would append instead of update.</p>
   </section>
 
   <!-- 03 ADRs -->
