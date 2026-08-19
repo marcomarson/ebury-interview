@@ -61,9 +61,23 @@ The row's **core amount cannot be computed**:
 | `quantity_missing_or_invalid` | `quantity` empty / not numeric | 16 |
 | `date_unparseable` | date matches neither format | 0* |
 | `transaction_id_invalid` | empty / non-numeric after strip | 0* |
+| `price_non_positive` | `price` ≤ 0 | 0* |
+| `tax_negative` | `tax` < 0 | 0* |
+| `quantity_non_positive` | `quantity` ≤ 0 | 0* |
+| `duplicate_transaction_id` | `transaction_id` appears more than once | 0* |
 
 \* No occurrences in this dataset, but the rule stays for robustness. Rows can trigger
 multiple reasons (overlap): 29 distinct rows quarantined.
+
+**Quarantine-first, tests as backstop.** New/unexpected-but-detectable problems (implausible
+values, duplicate grain) are **quarantined with a reason — the run stays green** — rather than
+hard-failing, because at that moment we don't know whether the issue is serious; segregate and
+review. The dbt tests (`unique`, `relationships`, `quantity ≥ 1`, …) remain a **last-resort
+backstop**: if something slipped past staging, they still catch it. Extending the vocabulary is
+a **localized change** — add a `case … then 'new_reason'` in `stg_customer_transactions` and add
+the code to `assert_dq_reasons_known`. *(Verified: injecting a duplicate id, a zero quantity, and
+a zero price quarantined all three and the run stayed green — fact 71→70, quarantine 29→33,
+reconciled.)*
 
 ### Flag (keep + annotate)
 

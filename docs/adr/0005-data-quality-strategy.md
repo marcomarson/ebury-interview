@@ -37,6 +37,15 @@ Two explicit judgment calls:
 - **`tax` is an absolute amount** (not a rate) — evidenced by near-zero correlation with
   price and continuous, non-round values. `total = quantity × price + tax`.
 
+- **Quarantine-first, tests as backstop.** A detectable-but-unexpected problem (implausible
+  value, duplicate grain) is **quarantined with a reason and the run stays green**, not
+  hard-failed — at that moment we don't know if it's serious, so we segregate and review.
+  The staging classifier owns this (reasons: `price_non_positive`, `tax_negative`,
+  `quantity_non_positive`, `duplicate_transaction_id`, plus the originals); the dbt tests
+  (`unique`, `relationships`, range checks) remain a last-resort net. Extending is a
+  localized change: one `case` in `stg_customer_transactions` + the code in
+  `assert_dq_reasons_known`.
+
 ## Consequences
 
 **Positive**

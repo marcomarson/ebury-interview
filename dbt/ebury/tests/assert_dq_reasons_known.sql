@@ -5,7 +5,11 @@ with known as (
         'tax_not_numeric',
         'quantity_missing_or_invalid',
         'date_unparseable',
-        'transaction_id_invalid'
+        'transaction_id_invalid',
+        'price_non_positive',
+        'tax_negative',
+        'quantity_non_positive',
+        'duplicate_transaction_id'
     ]) as reason
 )
 select r.transaction_id_raw, r.dq_reason

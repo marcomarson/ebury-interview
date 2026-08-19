@@ -122,6 +122,15 @@
   .fate p b{color:var(--ink)}
   .fatenote{margin-top:14px; font-size:.85rem; color:var(--muted); padding:13px 16px; background:var(--surface-2); border-radius:10px; border-left:3px solid var(--accent)}
   .fatenote b{color:var(--ink)}
+  /* robustness panel */
+  .robust{margin-top:20px; border:1px solid var(--accent); border-radius:14px; background:linear-gradient(180deg,var(--accent-soft),transparent); padding:20px}
+  .robust-h{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:1.05rem; margin-bottom:14px}
+  .robust-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px}
+  .rb{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 15px}
+  .rk{font-family:"IBM Plex Mono",monospace; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:7px}
+  .rv{font-size:.85rem; color:var(--muted)} .rv b{color:var(--ink)}
+  .robust-proof{margin-top:14px; font-size:.82rem; color:var(--muted); font-style:italic}
+  .robust-proof b{color:var(--clean); font-style:normal}
   @media (max-width:640px){ .fates{grid-template-columns:1fr}; .lsep{transform:rotate(90deg)} }
 
   /* DQ decision table */
@@ -395,6 +404,23 @@
       <span class="mono">transaction_id</span>, flag cleared) — never a duplicate. At scale, the incremental
       path uses <span class="mono">unique_key</span> + <span class="mono">merge</span> to upsert — the one
       spot a naive setup would append instead of update.</p>
+
+    <div class="robust">
+      <div class="robust-h">Robust to new problems</div>
+      <div class="robust-grid">
+        <div class="rb"><div class="rk">Known type</div><div class="rv">Another bad value of a known kind
+          (a new word-price, prefix, empty field) is handled automatically — coerced, flagged, or
+          quarantined. <b>No code change.</b></div></div>
+        <div class="rb"><div class="rk">New type</div><div class="rv">A detectable-but-unexpected problem
+          (duplicate id, non-positive amount) is <b>quarantined with a reason — the run stays green</b>.
+          We don't crash on data we haven't judged yet; the dbt tests stay as a backstop.</div></div>
+        <div class="rb"><div class="rk">Extending</div><div class="rv">Quarantining a new type is a
+          <b>2-line, one-model change</b>: a <span class="mono">case … then 'reason'</span> in staging
+          + the code in the known-reasons test.</div></div>
+      </div>
+      <div class="robust-proof">Proven — injecting a duplicate id, a zero quantity and a zero price
+        quarantined all three: <b>run green</b>, fact 71→70, quarantine 29→33, still reconciled.</div>
+    </div>
   </section>
 
   <!-- 03 aggregates -->

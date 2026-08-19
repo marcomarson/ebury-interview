@@ -39,20 +39,37 @@ typed as (
     from source
 ),
 
+windowed as (
+    select
+        *,
+        (transaction_id is not null
+         and count(*) over (partition by transaction_id) > 1)                       as is_duplicate_id
+    from typed
+),
+
 classified as (
     select
         *,
-        -- quarantine reasons (broken measure => amount uncomputable)
+        -- Quarantine-first: any detectable issue segregates the row (with a reason) instead of
+        -- failing the whole run — we decide later whether it's serious. The dbt tests downstream
+        -- are the last-resort backstop, not the first line of defence.
         array_remove(array[
+            -- unrecoverable measures (amount can't be computed)
             case when unit_price       is null then 'price_not_numeric' end,
-            case when tax_amount        is null then 'tax_not_numeric' end,
-            case when quantity          is null then 'quantity_missing_or_invalid' end,
-            case when transaction_date  is null then 'date_unparseable' end,
-            case when transaction_id    is null then 'transaction_id_invalid' end
+            case when tax_amount       is null then 'tax_not_numeric' end,
+            case when quantity         is null then 'quantity_missing_or_invalid' end,
+            case when transaction_date is null then 'date_unparseable' end,
+            case when transaction_id   is null then 'transaction_id_invalid' end,
+            -- implausible values (numeric, but out of a valid range)
+            case when unit_price is not null and unit_price <= 0 then 'price_non_positive' end,
+            case when tax_amount is not null and tax_amount <  0 then 'tax_negative' end,
+            case when quantity   is not null and quantity   <= 0 then 'quantity_non_positive' end,
+            -- grain violation
+            case when is_duplicate_id then 'duplicate_transaction_id' end
         ], null)                                                                   as dq_reasons,
         -- soft flag (kept): missing customer key
         (customer_id is null)                                                      as missing_customer
-    from typed
+    from windowed
 )
 
 select
