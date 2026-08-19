@@ -144,6 +144,9 @@
   .card .up{font-size:.82rem; color:var(--muted); border-top:1px dashed var(--line); padding-top:9px; margin-top:auto}
   .card .up b{color:var(--accent)}
   .card{display:flex; flex-direction:column}
+  .card .q{font-size:.92rem; color:var(--accent); font-style:italic; margin:0 0 10px; font-weight:500}
+  .card .metrics{font-size:.82rem; color:var(--muted); margin:0}
+  .card .metrics b{color:var(--ink); font-weight:600}
   .tag{font-family:"IBM Plex Mono",monospace; font-size:.66rem; color:var(--accent); border:1px solid var(--line); border-radius:6px; padding:1px 6px}
 
   /* ADR cards */
@@ -394,9 +397,42 @@
       spot a naive setup would append instead of update.</p>
   </section>
 
-  <!-- 03 ADRs -->
+  <!-- 03 aggregates -->
   <section>
-    <div class="snum">03 — Architecture Decision Records</div>
+    <div class="snum">03 — Insights</div>
+    <h2>The aggregates — and what they answer</h2>
+    <p class="sub">The brief asks not just for totals, but to <em>consider what information should be
+      included</em>. So each summary is built around a <b>business question</b>, with insight metrics —
+      average order value, revenue share, distinct counts, recency — layered on top of the raw sums.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>By month <span class="tag">agg_monthly_sales</span></h3>
+        <p class="q">"How is the business trending over time?"</p>
+        <p class="metrics">transactions · active customers · distinct products · revenue (subtotal / tax / total) ·
+          <b>avg transaction value</b> · <b>avg units per transaction</b></p>
+      </div>
+      <div class="card">
+        <h3>By customer <span class="tag">agg_sales_by_customer</span></h3>
+        <p class="q">"Who are our best customers — and how much is unattributed?"</p>
+        <p class="metrics">transactions · distinct products · revenue · <b>avg transaction value</b> ·
+          <b>first / last purchase</b> · <b>is_unknown</b> (the -1 bucket, surfaced not hidden)</p>
+      </div>
+      <div class="card">
+        <h3>By product <span class="tag">agg_sales_by_product</span></h3>
+        <p class="q">"Which products drive revenue, and how concentrated is it?"</p>
+        <p class="metrics">transactions · quantity · revenue · <b>avg unit price</b> ·
+          <b>revenue share %</b> (dependence on top sellers)</p>
+      </div>
+    </div>
+    <p class="fatenote"><b>Why these:</b> a consistent measure set across all three grains
+      (count · quantity · subtotal · tax · total) plus grain-specific insight metrics — so a stakeholder
+      gets an <em>answer</em>, not just a sum. E.g. on the sample: Product E = <b>24.6%</b> of revenue;
+      monthly AOV ≈ <b>572</b>.</p>
+  </section>
+
+  <!-- 04 ADRs -->
+  <section>
+    <div class="snum">04 — Architecture Decision Records</div>
     <h2>Five decisions, pros &amp; cons</h2>
     <p class="sub">Every significant choice is captured as an ADR — context, options, decision,
       consequences. Summarized here with the trade-offs; full records in <span class="mono">docs/adr/</span>.</p>
@@ -459,7 +495,7 @@
 
   <!-- 04 kept simple -->
   <section>
-    <div class="snum">04 — Judgment</div>
+    <div class="snum">05 — Judgment</div>
     <h2>What I kept simple — and why</h2>
     <p class="sub">Seniority is as much what you <em>don't</em> build. Each choice below is the right call
       <em>at this scale</em> — here's the reasoning, and exactly when I'd upgrade.</p>
@@ -499,7 +535,7 @@
 
   <!-- 05 scaling -->
   <section>
-    <div class="snum">05 — The road to production</div>
+    <div class="snum">06 — The road to production</div>
     <h2>How this scales</h2>
     <p class="sub">The design is a drop-in on-ramp — most steps are a change of mode, not a re-architecture.</p>
     <div class="roadmap">
@@ -514,7 +550,7 @@
 
   <!-- 06 cheat sheet -->
   <section style="border-bottom:none">
-    <div class="snum">06 — For the call</div>
+    <div class="snum">07 — For the call</div>
     <h2>Six things worth saying out loud</h2>
     <div class="cheat"><div class="cheat-in">
       <div class="points">

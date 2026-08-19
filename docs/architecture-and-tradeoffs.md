@@ -84,6 +84,18 @@ Result on the 100-row sample: **61 clean + 10 flagged = 71 modelled, 29 quaranti
 > duplicate. (At scale, the incremental path would use `unique_key` + a `merge` strategy to
 > upsert corrections rather than append them — the one place a naive setup would double a row.)
 
+**The aggregates (brief §2 — "consider what information should be included").** Three summaries,
+each answering a business question with insight metrics layered on the raw sums:
+
+| Summary | Answers | Beyond the sums it includes |
+|---------|---------|-----------------------------|
+| `agg_monthly_sales` | How is the business trending over time? | avg transaction value, avg units/transaction, active customers, distinct products |
+| `agg_sales_by_customer` | Who are our best customers — and how much is unattributed? | avg transaction value, first/last purchase, `is_unknown` (the -1 bucket) |
+| `agg_sales_by_product` | Which products drive revenue, how concentrated? | avg unit price, `revenue_share_pct` |
+
+A consistent measure set (count · quantity · subtotal · tax · total) runs across all three, so
+they compose cleanly. On the sample: Product E = 24.6% of revenue; monthly AOV ≈ 572.
+
 ---
 
 ## 3. Key decisions & trade-offs
