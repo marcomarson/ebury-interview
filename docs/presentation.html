@@ -122,6 +122,16 @@
   .fate p b{color:var(--ink)}
   @media (max-width:640px){ .fates{grid-template-columns:1fr}; .lsep{transform:rotate(90deg)} }
 
+  /* DQ decision table */
+  .dqtable{overflow-x:auto; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow)}
+  .dqtable table{width:100%; border-collapse:collapse; font-size:.88rem; min-width:600px}
+  .dqtable thead th{text-align:left; font-family:"IBM Plex Mono",monospace; font-size:.64rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; padding:12px 16px; background:var(--surface-2); border-bottom:1px solid var(--line)}
+  .dqtable tbody tr{background:var(--surface)}
+  .dqtable td{padding:13px 16px; border-bottom:1px solid var(--line); vertical-align:middle}
+  .dqtable tbody tr:last-child td{border-bottom:none}
+  .dqtable .ex{font-family:"IBM Plex Mono",monospace; color:var(--ink); font-size:.82rem}
+  .dqtable .prob{color:var(--muted)}
+
   /* cards grid */
   .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px}
   .card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px; box-shadow:var(--shadow)}
@@ -238,23 +248,23 @@
             <text x="86" y="194" text-anchor="middle" font-size="10.5" fill="var(--muted)">source extract</text>
 
             <!-- raw -->
-            <rect x="196" y="150" width="132" height="60" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+            <rect x="196" y="150" width="132" height="60" rx="10" fill="var(--flag-soft)" stroke="var(--flag)"/>
             <text x="262" y="174" text-anchor="middle" font-weight="600">raw table</text>
             <text x="262" y="192" text-anchor="middle" font-size="10.5" fill="var(--muted)">Bronze · all text</text>
 
             <!-- staging (splitter) -->
-            <rect x="378" y="140" width="150" height="80" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+            <rect x="378" y="140" width="150" height="80" rx="10" fill="var(--surface-2)" stroke="var(--muted)"/>
             <text x="453" y="170" text-anchor="middle" font-weight="700">dbt staging</text>
             <text x="453" y="188" text-anchor="middle" font-size="10.5" fill="var(--muted)">coerce + classify</text>
             <text x="453" y="203" text-anchor="middle" font-size="10.5" fill="var(--muted)">dq_reasons · is_valid</text>
 
             <!-- valid: dims+fact -->
-            <rect x="590" y="70" width="160" height="66" rx="10" fill="var(--clean-soft)" stroke="var(--clean)"/>
+            <rect x="590" y="70" width="160" height="66" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
             <text x="670" y="96" text-anchor="middle" font-weight="700">dims + fact</text>
             <text x="670" y="114" text-anchor="middle" font-size="10.5" fill="var(--muted)">Gold · star · 71 rows</text>
 
             <!-- aggregates -->
-            <rect x="798" y="70" width="132" height="66" rx="10" fill="var(--surface-2)" stroke="var(--line)"/>
+            <rect x="798" y="70" width="132" height="66" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
             <text x="864" y="96" text-anchor="middle" font-weight="600">aggregates</text>
             <text x="864" y="114" text-anchor="middle" font-size="10.5" fill="var(--muted)">monthly · cust · prod</text>
 
@@ -290,40 +300,60 @@
             <path d="M670 136 L 670 160" stroke="currentColor" marker-end="url(#ah)"/>
           </g>
         </svg>
-        <figcaption>The split is the whole idea: a row is quarantined only when its <em>amount</em>
-          can't be computed — everything else is recovered or flagged, never dropped.</figcaption>
+        <figcaption>Box colours match the layers above — <span style="color:var(--flag)">amber Bronze</span>,
+          grey Silver, <span style="color:var(--accent)">teal Gold</span>; quarantine (red) is a DQ side-output.
+          A row is quarantined only when its <em>amount</em> can't be computed — everything else is recovered
+          or flagged, never dropped.</figcaption>
       </figure>
     </div>
   </section>
 
   <!-- 02 follow the data -->
   <section>
-    <div class="snum">02 — Follow the data</div>
-    <h2>Four rows, three fates</h2>
-    <p class="sub">The fastest way to understand the design: watch what happens to real rows from
-      the deliberately-dirty source.</p>
+    <div class="snum">02 — Data quality</div>
+    <h2>What happens to each row</h2>
+    <p class="sub">The source is deliberately dirty. Every row is
+      <b style="color:var(--clean)">recovered</b>, <b style="color:var(--flag)">flagged</b>, or
+      <b style="color:var(--quar)">quarantined</b> — this table shows exactly which, and why.</p>
 
-    <div class="flow">
-      <div class="frow">
-        <div class="src">1001, <b>501.0</b>, 2023-07-11, 101, Product A, 1, 76.27, 8.23</div>
-        <div class="to">→</div>
-        <span class="pill clean"><span class="dot"></span>Fact row · <span class="mono">501.0→501</span></span>
-      </div>
-      <div class="frow">
-        <div class="src"><b>T1010</b>, 500.0, …, <b>P100</b>, …, 4, 200.35, 17.34</div>
-        <div class="to">→</div>
-        <span class="pill clean"><span class="dot"></span>Fact row · prefixes stripped</span>
-      </div>
-      <div class="frow">
-        <div class="src">1007, <b>(empty)</b>, …, 5, 78.28, 18.24</div>
-        <div class="to">→</div>
-        <span class="pill flag"><span class="dot"></span>Fact row · flagged, unknown customer (-1)</span>
-      </div>
-      <div class="frow">
-        <div class="src">1009, 509.0, …, 5, <b>Two Hundred</b>, 10.69</div>
-        <div class="to">→</div>
-        <span class="pill quar"><span class="dot"></span>Quarantined · <span class="mono">price_not_numeric</span></span>
-      </div>
+    <div class="dqtable">
+      <table>
+        <thead>
+          <tr><th>Example from the CSV</th><th>The problem</th><th>What the pipeline does</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ex">customer_id = 501.0</td>
+            <td class="prob">stored as a float</td>
+            <td>cast to integer → <span class="ex">501</span></td>
+            <td><span class="pill clean"><span class="dot"></span>Fact</span></td>
+          </tr>
+          <tr>
+            <td class="ex">18-07-2023</td>
+            <td class="prob">date in DD-MM-YYYY, not ISO</td>
+            <td>parse → <span class="ex">2023-07-18</span></td>
+            <td><span class="pill clean"><span class="dot"></span>Fact</span></td>
+          </tr>
+          <tr>
+            <td class="ex">T1010 · P100</td>
+            <td class="prob">IDs carry a stray prefix</td>
+            <td>strip prefix → <span class="ex">1010 · 100</span></td>
+            <td><span class="pill clean"><span class="dot"></span>Fact</span></td>
+          </tr>
+          <tr>
+            <td class="ex">customer_id = (empty)</td>
+            <td class="prob">a dimension key is missing</td>
+            <td>keep row, map to unknown (-1), set <span class="ex">missing_customer</span></td>
+            <td><span class="pill flag"><span class="dot"></span>Fact · flagged</span></td>
+          </tr>
+          <tr>
+            <td class="ex">price = "Two Hundred"</td>
+            <td class="prob">not a number → the amount can't be computed</td>
+            <td>reject with reason <span class="ex">price_not_numeric</span></td>
+            <td><span class="pill quar"><span class="dot"></span>Quarantine</span></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="ruleline">
