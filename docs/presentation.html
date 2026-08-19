@@ -138,6 +138,10 @@
   .card h3{font-size:1rem; font-weight:700; margin-bottom:8px; display:flex; gap:8px; align-items:baseline}
   .card .why{font-size:.9rem; margin:0 0 8px}
   .card .tradeoff{font-size:.82rem; color:var(--muted); border-top:1px dashed var(--line); padding-top:8px; margin-top:8px}
+  .card .why b{color:var(--ink)}
+  .card .up{font-size:.82rem; color:var(--muted); border-top:1px dashed var(--line); padding-top:9px; margin-top:auto}
+  .card .up b{color:var(--accent)}
+  .card{display:flex; flex-direction:column}
   .tag{font-family:"IBM Plex Mono",monospace; font-size:.66rem; color:var(--accent); border:1px solid var(--line); border-radius:6px; padding:1px 6px}
 
   /* ADR cards */
@@ -148,6 +152,7 @@
   .adr h3{font-size:1.02rem; font-weight:700}
   .adr-dec{font-size:.9rem; color:var(--muted); margin:11px 0 15px}
   .adr-dec b{color:var(--ink)}
+  .dec-label{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.58rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); border:1px solid var(--accent); border-radius:5px; padding:1px 6px; margin-right:6px; vertical-align:middle; font-weight:600}
   .proscons{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:auto; padding-top:14px; border-top:1px solid var(--line)}
   .pc-h{font-family:"IBM Plex Mono",monospace; font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; margin-bottom:9px; font-weight:600}
   .pc-h.p{color:var(--clean)} .pc-h.c{color:var(--quar)}
@@ -390,9 +395,10 @@
     <div class="adrs">
 
       <article class="adr">
-        <div class="adr-head"><span class="adr-id">ADR 0001</span><h3>Cosmos for dbt-in-Airflow</h3></div>
-        <p class="adr-dec"><b>Render dbt with Astronomer Cosmos</b> — each model becomes its own
-          Airflow task; dbt runs from an isolated venv. <span style="color:var(--muted)">Rejected: BashOperator, DockerOperator, dbt Cloud, K8s pods.</span></p>
+        <div class="adr-head"><span class="adr-id">ADR 0001</span><h3>Running dbt inside Airflow</h3></div>
+        <p class="adr-dec"><span class="dec-label">Decision</span><b>Astronomer Cosmos</b> — each dbt
+          model becomes its own Airflow task; dbt runs in an isolated venv.
+          <span style="color:var(--muted)">Rejected: BashOperator, DockerOperator, dbt Cloud, K8s pods.</span></p>
         <div class="proscons">
           <div><div class="pc-h p">Pros</div><ul class="pros"><li>Per-model retries &amp; lineage in the UI</li><li>dbt env isolated from Airflow's</li><li>Community standard; scales unchanged</li></ul></div>
           <div><div class="pc-h c">Cons</div><ul class="cons"><li>Extra dependency &amp; config surface</li><li>Installs deps at render</li><li>Arguably overkill for a few models</li></ul></div>
@@ -400,9 +406,9 @@
       </article>
 
       <article class="adr">
-        <div class="adr-head"><span class="adr-id">ADR 0002</span><h3>Config &amp; secrets</h3></div>
-        <p class="adr-dec"><b>Inline <span class="mono">${VAR:-default}</span> for local dev</b>;
-          source secrets from a manager for real deployments.</p>
+        <div class="adr-head"><span class="adr-id">ADR 0002</span><h3>Where config &amp; secrets live</h3></div>
+        <p class="adr-dec"><span class="dec-label">Decision</span><b>Env defaults locally
+          (<span class="mono">${VAR:-default}</span>), a secrets manager in production.</b></p>
         <div class="proscons">
           <div><div class="pc-h p">Pros</div><ul class="pros"><li>Zero-setup <span class="mono">docker compose up</span></li><li>No secrets committed to the repo</li><li>Clear seam to a secrets manager</li></ul></div>
           <div><div class="pc-h c">Cons</div><ul class="cons"><li>Default creds in committed YAML</li><li>Local throwaway only — not deployable</li></ul></div>
@@ -410,9 +416,9 @@
       </article>
 
       <article class="adr">
-        <div class="adr-head"><span class="adr-id">ADR 0003</span><h3>Classic dbt engine</h3></div>
-        <p class="adr-dec"><b>Pin classic dbt-core 1.9</b>, not the dbt 2.0 "Fusion" pre-release
-          (which dropped the Postgres adapter).</p>
+        <div class="adr-head"><span class="adr-id">ADR 0003</span><h3>Which dbt engine to run</h3></div>
+        <p class="adr-dec"><span class="dec-label">Decision</span><b>Classic dbt-core 1.9</b>, not the
+          dbt 2.0 "Fusion" pre-release — which dropped the Postgres adapter.</p>
         <div class="proscons">
           <div><div class="pc-h p">Pros</div><ul class="pros"><li>Postgres fully supported</li><li>Reproducible, deterministic builds</li><li>Mature, stable engine</li></ul></div>
           <div><div class="pc-h c">Cons</div><ul class="cons"><li>Not on the newer Rust engine</li><li>Revisit when Fusion supports Postgres</li></ul></div>
@@ -420,9 +426,9 @@
       </article>
 
       <article class="adr">
-        <div class="adr-head"><span class="adr-id">ADR 0004</span><h3>Bake code into the image</h3></div>
-        <p class="adr-dec"><b>COPY dags/dbt into the image</b>; compose bind-mounts override those
-          paths for fast local dev.</p>
+        <div class="adr-head"><span class="adr-id">ADR 0004</span><h3>Getting code into the container</h3></div>
+        <p class="adr-dec"><span class="dec-label">Decision</span><b>Bake dags/dbt into the image</b>;
+          compose bind-mounts override those paths for fast local dev.</p>
         <div class="proscons">
           <div><div class="pc-h p">Pros</div><ul class="pros"><li>Immutable, shippable artifact (git SHA)</li><li>Dev speed unchanged — mount wins</li><li>Git = source of truth, image = runtime</li></ul></div>
           <div><div class="pc-h c">Cons</div><ul class="cons"><li>Two delivery paths to keep in mind</li><li>Rebuild to ship code changes</li></ul></div>
@@ -430,9 +436,10 @@
       </article>
 
       <article class="adr">
-        <div class="adr-head"><span class="adr-id">ADR 0005</span><h3>Data-quality strategy</h3></div>
-        <p class="adr-dec"><b>Coerce · quarantine · flag.</b> Recover safe formatting; quarantine
-          broken measures with reasons; flag (don't drop) missing dimensions. No word→number; tax is absolute.</p>
+        <div class="adr-head"><span class="adr-id">ADR 0005</span><h3>Handling dirty data</h3></div>
+        <p class="adr-dec"><span class="dec-label">Decision</span><b>Coerce · quarantine · flag.</b>
+          Recover safe formatting; quarantine broken measures with reasons; flag (don't drop) missing
+          dimensions. No word→number; tax is absolute.</p>
         <div class="proscons">
           <div><div class="pc-h p">Pros</div><ul class="pros"><li>Nothing dropped silently (reconciles to 100)</li><li>Explicit, testable, auditable rules</li><li>Revenue not distorted by invented values</li></ul></div>
           <div><div class="pc-h c">Cons</div><ul class="cons"><li>Rules are dataset-specific</li><li>Quarantines 16 missing-quantity rows</li></ul></div>
@@ -445,15 +452,40 @@
   <!-- 04 kept simple -->
   <section>
     <div class="snum">04 — Judgment</div>
-    <h2>What I kept simple — on purpose</h2>
-    <p class="sub">Seniority is as much what you <em>don't</em> build. Each is right at this scale, with a known upgrade path.</p>
-    <div class="two">
-      <div class="h simple">Kept simple</div><div class="h up">Upgrade path</div>
-      <div class="c simple">LocalExecutor</div><div class="c up">Celery / Kubernetes executor</div>
-      <div class="c simple">Single Postgres warehouse</div><div class="c up">Cloud DW (Snowflake / BigQuery)</div>
-      <div class="c simple">Full-refresh marts</div><div class="c up">Incremental models (unique_key)</div>
-      <div class="c simple">Log-based alerting (webhook-ready)</div><div class="c up">Slack / PagerDuty transport</div>
-      <div class="c simple">Lightweight DQ audit table</div><div class="c up">elementary-data (history + anomalies)</div>
+    <h2>What I kept simple — and why</h2>
+    <p class="sub">Seniority is as much what you <em>don't</em> build. Each choice below is the right call
+      <em>at this scale</em> — here's the reasoning, and exactly when I'd upgrade.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>LocalExecutor</h3>
+        <p class="why"><b>Why:</b> one host, low volume. Celery/K8s executors add a message broker and a
+          worker fleet — complexity with no payoff at this scale.</p>
+        <p class="up"><b>Upgrade →</b> Celery / Kubernetes executor when tasks must scale out across nodes.</p>
+      </div>
+      <div class="card">
+        <h3>Single Postgres warehouse</h3>
+        <p class="why"><b>Why:</b> the brief specifies Postgres and the dataset is 100 rows. A cloud
+          warehouse adds cost and setup for zero gain here.</p>
+        <p class="up"><b>Upgrade →</b> Snowflake / BigQuery / Redshift for scale, a storage–compute split, and dbt Fusion.</p>
+      </div>
+      <div class="card">
+        <h3>Full-refresh marts</h3>
+        <p class="why"><b>Why:</b> 100 rows rebuild in milliseconds, and full-refresh is the simplest thing
+          that's already idempotent. Incremental adds state and merge logic to maintain.</p>
+        <p class="up"><b>Upgrade →</b> incremental models (<span class="mono">unique_key</span>) once full rebuilds get slow or costly.</p>
+      </div>
+      <div class="card">
+        <h3>Log-based alerting</h3>
+        <p class="why"><b>Why:</b> there's no real Slack/webhook secret to commit or test in a take-home.
+          The notifier is webhook-ready, so a channel is a config change — not a rewrite.</p>
+        <p class="up"><b>Upgrade →</b> point <span class="mono">ALERT_WEBHOOK_URL</span> at Slack / PagerDuty.</p>
+      </div>
+      <div class="card">
+        <h3>Lightweight DQ audit</h3>
+        <p class="why"><b>Why:</b> one audit table + dbt <span class="mono">store_failures</span> is
+          self-contained and testable. elementary brings its own models and a UI — more than this scale needs.</p>
+        <p class="up"><b>Upgrade →</b> elementary-data for test history, anomaly detection, and a report.</p>
+      </div>
     </div>
   </section>
 
